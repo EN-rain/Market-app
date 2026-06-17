@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'router.dart';
-import 'storage/secure_storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +16,7 @@ class PocketTradeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final storage = const FlutterSecureStorage();
+    const storage = FlutterSecureStorage();
     return MaterialApp.router(
       title: 'PocketTrade',
       debugShowCheckedModeBanner: false,
