@@ -123,8 +123,8 @@ function Start-BackendIfNeeded {
   $stdout = Join-Path $ResultsDir "backend-server.stdout.log"
   $stderr = Join-Path $ResultsDir "backend-server.stderr.log"
   $process = Start-Process `
-    -FilePath "npm.cmd" `
-    -ArgumentList @("run", "start:dev") `
+    -FilePath "node.exe" `
+    -ArgumentList @("dist/main.js") `
     -WorkingDirectory $BackendDir `
     -RedirectStandardOutput $stdout `
     -RedirectStandardError $stderr `
@@ -149,16 +149,27 @@ function Invoke-ApiE2E {
   Write-Line "Health"
   Invoke-WebRequest -UseBasicParsing -Uri "$BaseUrl/health" -TimeoutSec 10 | Out-Null
 
-  Write-Line "Request OTP"
-  $otp = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/request-otp" -ContentType "application/json" -Body (@{ email = $email } | ConvertTo-Json)
+  $password = "QaPass123!"
+
+  Write-Line "Register seller account"
+  $otp = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/register" -ContentType "application/json" -Body (@{ email = $email; password = $password } | ConvertTo-Json)
   if (-not $otp.devCode) {
-    throw "OTP response did not include devCode. Run against NODE_ENV=development or provide a test email inbox flow."
+    throw "Register response did not include devCode. Run against NODE_ENV=development or provide a test email inbox flow."
   }
 
-  Write-Line "Verify OTP"
+  Write-Line "Verify seller account"
   $auth = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/verify-otp" -ContentType "application/json" -Body (@{ email = $email; code = $otp.devCode } | ConvertTo-Json)
   if (-not $auth.accessToken -or -not $auth.refreshToken) {
     throw "Auth response missing accessToken or refreshToken"
+  }
+  if ($auth.user.displayName -ne ($email.Split("@")[0])) {
+    throw "Display name was not derived from email prefix"
+  }
+
+  Write-Line "Password sign in"
+  $login = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/login" -ContentType "application/json" -Body (@{ email = $email; password = $password } | ConvertTo-Json)
+  if (-not $login.accessToken -or -not $login.refreshToken) {
+    throw "Login response missing accessToken or refreshToken"
   }
 
   Write-Line "Create listing with photo"
@@ -196,14 +207,26 @@ function Invoke-ApiE2E {
 
   Write-Line "Create buyer account"
   $buyerEmail = "qa-buyer-{0}@example.com" -f ([guid]::NewGuid().ToString("N").Substring(0, 10))
-  $buyerOtp = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/request-otp" -ContentType "application/json" -Body (@{ email = $buyerEmail } | ConvertTo-Json)
+  $buyerPassword = "BuyerPass123!"
+  $buyerOtp = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/register" -ContentType "application/json" -Body (@{ email = $buyerEmail; password = $buyerPassword } | ConvertTo-Json)
   if (-not $buyerOtp.devCode) {
-    throw "Buyer OTP response did not include devCode"
+    throw "Buyer register response did not include devCode"
   }
   $buyerAuth = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/verify-otp" -ContentType "application/json" -Body (@{ email = $buyerEmail; code = $buyerOtp.devCode } | ConvertTo-Json)
   if (-not $buyerAuth.accessToken -or -not $buyerAuth.refreshToken) {
     throw "Buyer auth response missing accessToken or refreshToken"
   }
+
+  Write-Line "Forgot and reset password"
+  $forgot = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/forgot-password" -ContentType "application/json" -Body (@{ email = $buyerEmail } | ConvertTo-Json)
+  if (-not $forgot.devCode) {
+    throw "Forgot password response did not include devCode"
+  }
+  $reset = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/reset-password" -ContentType "application/json" -Body (@{ email = $buyerEmail; code = $forgot.devCode; password = "BuyerPass456!" } | ConvertTo-Json)
+  if (-not $reset.accessToken -or -not $reset.refreshToken) {
+    throw "Reset password response missing accessToken or refreshToken"
+  }
+  $buyerAuth = $reset
 
   Write-Line "Favorite listing"
   Invoke-RestMethod -Method Post -Uri "$BaseUrl/favorites" -Headers @{ Authorization = "Bearer $($buyerAuth.accessToken)" } -ContentType "application/json" -Body (@{ listingId = [int]$listing.id } | ConvertTo-Json) | Out-Null
@@ -230,6 +253,7 @@ function Invoke-ApiE2E {
 
   Write-Line "Logout"
   Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/logout" -Headers @{ Authorization = "Bearer $($buyerAuth.accessToken)" } -ContentType "application/json" -Body (@{ refreshToken = $buyerAuth.refreshToken } | ConvertTo-Json) | Out-Null
+  Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/logout" -Headers @{ Authorization = "Bearer $($login.accessToken)" } -ContentType "application/json" -Body (@{ refreshToken = $login.refreshToken } | ConvertTo-Json) | Out-Null
   Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/logout" -Headers @{ Authorization = "Bearer $($auth.accessToken)" } -ContentType "application/json" -Body (@{ refreshToken = $auth.refreshToken } | ConvertTo-Json) | Out-Null
 
   Write-Line "API E2E passed: listing=$($listing.id) conversation=$($conversation.id)"

@@ -34,6 +34,26 @@ class ApiClient {
 
   Dio get dio => _dio;
 
+  Future<Map<String, dynamic>> register(String email, String password) async {
+    final res = await _dio.post('/auth/register', data: {'email': email, 'password': password});
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> login(String email, String password) async {
+    final res = await _dio.post('/auth/login', data: {'email': email, 'password': password});
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    final res = await _dio.post('/auth/forgot-password', data: {'email': email});
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> resetPassword(String email, String code, String password) async {
+    final res = await _dio.post('/auth/reset-password', data: {'email': email, 'code': code, 'password': password});
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
   Future<Map<String, dynamic>> requestOtp(String email) async {
     final res = await _dio.post('/auth/request-otp', data: {'email': email});
     return Map<String, dynamic>.from(res.data as Map);

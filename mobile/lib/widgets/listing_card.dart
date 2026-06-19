@@ -10,7 +10,7 @@ class ListingCard extends StatelessWidget {
   final Listing listing;
   final VoidCallback? onTap;
 
-  static final _money = NumberFormat.simpleCurrency(decimalDigits: 0);
+  static final _money = NumberFormat.currency(locale: 'en_US', symbol: 'PHP ', decimalDigits: 0);
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +45,7 @@ class ListingCard extends StatelessWidget {
                 children: [
                   Text(
                     '${listing.brand} ${listing.model}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -59,7 +59,7 @@ class ListingCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${listing.storage} · ${listing.condition}',
+                    '${listing.storage} - ${_conditionLabel(listing.condition)}',
                     style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -71,5 +71,16 @@ class ListingCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _conditionLabel(String value) {
+    return switch (value) {
+      'brand_new' => 'Brand new',
+      'like_new' => 'Like new',
+      'excellent' => 'Excellent',
+      'good' => 'Good',
+      'fair' => 'Fair',
+      _ => value,
+    };
   }
 }

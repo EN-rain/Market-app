@@ -29,9 +29,9 @@ export class ListingsController {
 
   @Post()
   @UseInterceptors(
-    FilesInterceptor('photos', 8, {
+    FilesInterceptor('photos', 5, {
       storage: memoryStorage(),
-      limits: { fileSize: 8 * 1024 * 1024, files: 8 },
+      limits: { fileSize: 8 * 1024 * 1024, files: 5 },
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.startsWith('image/')) {
           return cb(new BadRequestException('Only images allowed'), false);
