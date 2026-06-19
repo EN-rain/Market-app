@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import pocketTradeBackground from '../assets/pockettrade-background.jpg';
@@ -17,8 +17,17 @@ export function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem('rememberedAdminEmail');
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +40,11 @@ export function Login() {
       });
       localStorage.setItem('accessToken', res.data.accessToken);
       localStorage.setItem('refreshToken', res.data.refreshToken);
+      if (rememberMe) {
+        localStorage.setItem('rememberedAdminEmail', email);
+      } else {
+        localStorage.removeItem('rememberedAdminEmail');
+      }
       navigate('/dashboard', { replace: true });
     } catch (err) {
       if (err && typeof err === 'object' && 'response' in err) {
@@ -83,6 +97,15 @@ export function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+            />
+            Remember me
+          </label>
           <button
             type="submit"
             disabled={loading}

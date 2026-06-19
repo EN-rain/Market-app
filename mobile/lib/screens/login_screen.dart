@@ -2,6 +2,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/api_client.dart';
 import '../storage/secure_storage.dart';
@@ -9,7 +10,8 @@ import '../storage/secure_storage.dart';
 enum _AuthMode { signIn, signUp, forgotPassword }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.tokenStore, required this.apiUrl});
+  const LoginScreen(
+      {super.key, required this.tokenStore, required this.apiUrl});
 
   final TokenStore tokenStore;
   final String apiUrl;
@@ -23,12 +25,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
   final _otpCtrl = TextEditingController();
-  late final ApiClient _api = ApiClient(baseUrl: widget.apiUrl, tokenStore: widget.tokenStore);
+  late final ApiClient _api =
+      ApiClient(baseUrl: widget.apiUrl, tokenStore: widget.tokenStore);
 
   _AuthMode _mode = _AuthMode.signIn;
   bool _otpSent = false;
   bool _resetCodeSent = false;
   bool _loading = false;
+  bool _rememberMe = false;
   String? _error;
 
   String get _email => _emailCtrl.text.trim().toLowerCase();
@@ -56,6 +60,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _completeSignIn(Map<String, dynamic> res) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_rememberMe) {
+      await prefs.setString('pockettrade.remembered_email', _email);
+    } else {
+      await prefs.remove('pockettrade.remembered_email');
+    }
     await widget.tokenStore.setTokens(
       access: res['accessToken'] as String,
       refresh: res['refreshToken'] as String,
@@ -73,6 +83,16 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) context.go('/home');
   }
 
+  Future<void> _loadRememberedLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final remembered = prefs.getString('pockettrade.remembered_email') ?? '';
+    if (!mounted || remembered.isEmpty) return;
+    setState(() {
+      _rememberMe = true;
+      _emailCtrl.text = remembered;
+    });
+  }
+
   Future<void> _signIn() async {
     if (!_validEmail()) {
       setState(() => _error = 'Enter a valid email address');
@@ -87,7 +107,8 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await _completeSignIn(await _api.login(_email, _password));
     } catch (e) {
-      setState(() => _error = 'Could not sign in. Check your email and password.');
+      setState(
+          () => _error = 'Could not sign in. Check your email and password.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -116,7 +137,8 @@ class _LoginScreenState extends State<LoginScreen> {
         _otpCtrl.clear();
       });
     } catch (e) {
-      setState(() => _error = 'Could not create that account. The email may already be registered.');
+      setState(() => _error =
+          'Could not create that account. The email may already be registered.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -184,10 +206,17 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await _completeSignIn(await _api.resetPassword(_email, code, _password));
     } catch (e) {
-      setState(() => _error = 'Could not reset the password. Check the code and try again.');
+      setState(() => _error =
+          'Could not reset the password. Check the code and try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedLogin();
   }
 
   @override
@@ -204,13 +233,19 @@ class _LoginScreenState extends State<LoginScreen> {
     final theme = Theme.of(context);
     final title = switch (_mode) {
       _AuthMode.signIn => 'Sign in to PocketTrade',
-      _AuthMode.signUp => _otpSent ? 'Verify your account' : 'Create your account',
-      _AuthMode.forgotPassword => _resetCodeSent ? 'Reset password' : 'Forgot password',
+      _AuthMode.signUp =>
+        _otpSent ? 'Verify your account' : 'Create your account',
+      _AuthMode.forgotPassword =>
+        _resetCodeSent ? 'Reset password' : 'Forgot password',
     };
     final subtitle = switch (_mode) {
       _AuthMode.signIn => 'Buy and sell phones with verified accounts.',
-      _AuthMode.signUp => _otpSent ? 'Enter the code sent after registration.' : 'Your display name is created from your email.',
-      _AuthMode.forgotPassword => _resetCodeSent ? 'Enter the reset code and a new password.' : 'Send a reset code to your email.',
+      _AuthMode.signUp => _otpSent
+          ? 'Enter the code sent after registration.'
+          : 'Your display name is created from your email.',
+      _AuthMode.forgotPassword => _resetCodeSent
+          ? 'Enter the reset code and a new password.'
+          : 'Send a reset code to your email.',
     };
 
     return Scaffold(
@@ -232,7 +267,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.phone_android_rounded, color: theme.colorScheme.onPrimary, size: 34),
+                        Icon(Icons.phone_android_rounded,
+                            color: theme.colorScheme.onPrimary, size: 34),
                         const SizedBox(height: 18),
                         Text(
                           title,
@@ -244,7 +280,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 8),
                         Text(
                           subtitle,
-                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onPrimary.withValues(alpha: 0.84)),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onPrimary
+                                  .withValues(alpha: 0.84)),
                         ),
                       ],
                     ),
@@ -252,11 +290,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 18),
                   SegmentedButton<_AuthMode>(
                     segments: const [
-                      ButtonSegment(value: _AuthMode.signIn, icon: Icon(Icons.login), label: Text('Sign in')),
-                      ButtonSegment(value: _AuthMode.signUp, icon: Icon(Icons.person_add_alt), label: Text('Sign up')),
+                      ButtonSegment(
+                          value: _AuthMode.signIn,
+                          icon: Icon(Icons.login),
+                          label: Text('Sign in')),
+                      ButtonSegment(
+                          value: _AuthMode.signUp,
+                          icon: Icon(Icons.person_add_alt),
+                          label: Text('Sign up')),
                     ],
-                    selected: {_mode == _AuthMode.forgotPassword ? _AuthMode.signIn : _mode},
-                    onSelectionChanged: _loading ? null : (v) => _setMode(v.first),
+                    selected: {
+                      _mode == _AuthMode.forgotPassword
+                          ? _AuthMode.signIn
+                          : _mode
+                    },
+                    onSelectionChanged:
+                        _loading ? null : (v) => _setMode(v.first),
                   ),
                   const SizedBox(height: 16),
                   _formFields(),
@@ -268,14 +317,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: theme.colorScheme.errorContainer,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(_error!, style: TextStyle(color: theme.colorScheme.onErrorContainer)),
+                      child: Text(_error!,
+                          style: TextStyle(
+                              color: theme.colorScheme.onErrorContainer)),
                     ),
                   ],
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: _loading ? null : _primaryAction,
                     icon: _loading
-                        ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2))
                         : Icon(_buttonIcon),
                     label: Text(_buttonText),
                   ),
@@ -291,9 +345,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _formFields() {
-    final showPassword = _mode == _AuthMode.signIn || (_mode == _AuthMode.signUp && !_otpSent) || (_mode == _AuthMode.forgotPassword && _resetCodeSent);
-    final showConfirm = (_mode == _AuthMode.signUp && !_otpSent) || (_mode == _AuthMode.forgotPassword && _resetCodeSent);
-    final showOtp = (_mode == _AuthMode.signUp && _otpSent) || (_mode == _AuthMode.forgotPassword && _resetCodeSent);
+    final showPassword = _mode == _AuthMode.signIn ||
+        (_mode == _AuthMode.signUp && !_otpSent) ||
+        (_mode == _AuthMode.forgotPassword && _resetCodeSent);
+    final showConfirm = (_mode == _AuthMode.signUp && !_otpSent) ||
+        (_mode == _AuthMode.forgotPassword && _resetCodeSent);
+    final showOtp = (_mode == _AuthMode.signUp && _otpSent) ||
+        (_mode == _AuthMode.forgotPassword && _resetCodeSent);
 
     return Column(
       children: [
@@ -334,6 +392,18 @@ class _LoginScreenState extends State<LoginScreen> {
             obscureText: true,
           ),
         ],
+        if (_mode == _AuthMode.signIn) ...[
+          const SizedBox(height: 4),
+          CheckboxListTile(
+            value: _rememberMe,
+            onChanged: _loading
+                ? null
+                : (v) => setState(() => _rememberMe = v ?? false),
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: const Text('Remember me'),
+          ),
+        ],
         if (showConfirm) ...[
           const SizedBox(height: 12),
           TextField(
@@ -351,19 +421,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
   VoidCallback get _primaryAction {
     if (_mode == _AuthMode.signIn) return _signIn;
-    if (_mode == _AuthMode.signUp) return _otpSent ? _verifyRegistration : _register;
+    if (_mode == _AuthMode.signUp) {
+      return _otpSent ? _verifyRegistration : _register;
+    }
     return _resetCodeSent ? _resetPassword : _sendResetCode;
   }
 
   IconData get _buttonIcon {
     if (_mode == _AuthMode.signIn) return Icons.arrow_forward;
-    if (_mode == _AuthMode.signUp) return _otpSent ? Icons.verified : Icons.person_add_alt;
+    if (_mode == _AuthMode.signUp) {
+      return _otpSent ? Icons.verified : Icons.person_add_alt;
+    }
     return _resetCodeSent ? Icons.password : Icons.mark_email_read_outlined;
   }
 
   String get _buttonText {
     if (_mode == _AuthMode.signIn) return 'Sign in';
-    if (_mode == _AuthMode.signUp) return _otpSent ? 'Verify account' : 'Create account';
+    if (_mode == _AuthMode.signUp) {
+      return _otpSent ? 'Verify account' : 'Create account';
+    }
     return _resetCodeSent ? 'Reset password' : 'Send reset code';
   }
 

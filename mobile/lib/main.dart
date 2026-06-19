@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart';
 
 import 'router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await Firebase.initializeApp();
   runApp(const ProviderScope(child: PocketTradeApp()));
 }
@@ -64,7 +66,8 @@ class PocketTradeApp extends StatelessWidget {
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
         cardTheme: const CardThemeData(
@@ -81,7 +84,8 @@ class PocketTradeApp extends StatelessWidget {
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: Colors.white,
           indicatorColor: const Color(0xFFDCEFEB),
-          labelTextStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          labelTextStyle: WidgetStateProperty.all(
+              const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         ),
       ),
       routerConfig: appRouter(storage),
