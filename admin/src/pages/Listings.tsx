@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
+import { cloudinaryImageUrl } from '../lib/images.js';
 
 interface Listing {
   id: number;
@@ -22,115 +24,105 @@ interface ListingsResponse {
 const PAGE_SIZE = 10;
 
 export function Listings() {
-  const [items, setItems] = useState<Listing[]>([]);
-  const [total, setTotal] = useState(0);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [brands, setBrands] = useState<string[]>([]);
-  const [refreshNonce, setRefreshNonce] = useState(0);
   const [rejectTarget, setRejectTarget] = useState<Listing | null>(null);
   const [priceTarget, setPriceTarget] = useState<Listing | null>(null);
   const [modalValue, setModalValue] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams();
-        params.set('page', String(page));
-        params.set('limit', String(PAGE_SIZE));
-        if (statusFilter) params.set('status', statusFilter);
-        if (brandFilter) params.set('brand', brandFilter);
-        const res = await api.get<ListingsResponse>(`/admin/listings?${params.toString()}`);
-        if (!cancelled) {
-          setItems(res.data.items);
-          setTotal(res.data.total);
-          if (!brandFilter && !statusFilter && page === 1) {
-            const unique = Array.from(new Set(res.data.items.map((i) => i.brand)));
-            setBrands(unique);
-          }
-        }
-      } catch {
-        if (!cancelled) setError('Failed to load listings');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, [page, statusFilter, brandFilter, refreshNonce]);
+  const listingsQuery = useQuery({
+    queryKey: ['admin', 'listings', { page, statusFilter, brandFilter }],
+    queryFn: async () => {
+      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+      if (statusFilter) params.set('status', statusFilter);
+      if (brandFilter) params.set('brand', brandFilter);
+      return (await api.get<ListingsResponse>(`/admin/listings?${params.toString()}`)).data;
+    },
+    placeholderData: (previous) => previous,
+    staleTime: 20_000,
+  });
 
-  const handleApprove = async (id: string) => {
-    setActionLoading(id);
-    try {
-      await api.post(`/admin/listings/${id}/approve`);
-      setRefreshNonce((n) => n + 1);
-    } catch {
-      setError('Failed to approve listing');
-    } finally {
-      setActionLoading(null);
-    }
+  const firstPageQuery = useQuery({
+    queryKey: ['admin', 'listings', 'brands-preview'],
+    queryFn: async () => (await api.get<ListingsResponse>(`/admin/listings?page=1&limit=100`)).data,
+    staleTime: 5 * 60_000,
+  });
+
+  const invalidateListings = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['admin', 'listings'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] }),
+    ]);
   };
 
-  const submitReject = async () => {
-    if (!rejectTarget) return;
-    setActionLoading(String(rejectTarget.id));
-    try {
-      await api.post(`/admin/listings/${rejectTarget.id}/reject`, { reason: modalValue.trim() || undefined });
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, action }: { id: number; action: 'approve' | 'remove' | 'restore' }) => {
+      await api.post(`/admin/listings/${id}/${action}`);
+    },
+    onSuccess: invalidateListings,
+    onError: (_error, variables) => setLocalError(`Failed to ${variables.action} listing`),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: number; reason?: string }) => {
+      await api.post(`/admin/listings/${id}/reject`, { reason });
+    },
+    onSuccess: async () => {
       setRejectTarget(null);
       setModalValue('');
-      setRefreshNonce((n) => n + 1);
-    } catch {
-      setError('Failed to reject listing');
-    } finally {
-      setActionLoading(null);
-    }
+      await invalidateListings();
+    },
+    onError: () => setLocalError('Failed to reject listing'),
+  });
+
+  const priceMutation = useMutation({
+    mutationFn: async ({ id, price }: { id: number; price: number }) => {
+      await api.patch(`/admin/listings/${id}`, { price });
+    },
+    onSuccess: async () => {
+      setPriceTarget(null);
+      setModalValue('');
+      await invalidateListings();
+    },
+    onError: () => setLocalError('Failed to update listing price'),
+  });
+
+  const items = listingsQuery.data?.items ?? [];
+  const total = listingsQuery.data?.total ?? 0;
+  const totalPages = Math.max(1, listingsQuery.data?.pages ?? 1);
+  const isMutating = statusMutation.isPending || rejectMutation.isPending || priceMutation.isPending;
+  const brands = useMemo(() => {
+    const source = firstPageQuery.data?.items ?? items;
+    return Array.from(new Set(source.map((item) => item.brand))).filter(Boolean).sort();
+  }, [firstPageQuery.data?.items, items]);
+
+  const submitReject = () => {
+    if (!rejectTarget) return;
+    setLocalError(null);
+    rejectMutation.mutate({ id: rejectTarget.id, reason: modalValue.trim() || undefined });
   };
 
-  const handleStatus = async (id: number, action: 'remove' | 'restore') => {
-    setActionLoading(String(id));
-    try {
-      await api.post(`/admin/listings/${id}/${action}`);
-      setRefreshNonce((n) => n + 1);
-    } catch {
-      setError(`Failed to ${action} listing`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const submitPrice = async () => {
+  const submitPrice = () => {
     if (!priceTarget) return;
     const price = Number(modalValue);
     if (!Number.isInteger(price) || price < 1) {
-      setError('Enter a valid whole-number price above zero');
+      setLocalError('Enter a valid whole-number price above zero');
       return;
     }
-    setActionLoading(String(priceTarget.id));
-    try {
-      await api.patch(`/admin/listings/${priceTarget.id}`, { price });
-      setPriceTarget(null);
-      setModalValue('');
-      setRefreshNonce((n) => n + 1);
-    } catch {
-      setError('Failed to update listing price');
-    } finally {
-      setActionLoading(null);
-    }
+    setLocalError(null);
+    priceMutation.mutate({ id: priceTarget.id, price });
   };
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="space-y-6">
       <div className="admin-page-header">
-        <h1 className="admin-page-title">Listings</h1>
+        <div>
+          <h1 className="admin-page-title">Listings</h1>
+          <p className="mt-1 text-sm text-slate-500">{listingsQuery.data ? `${total.toLocaleString()} listings` : 'Loading listings'}</p>
+        </div>
         <div className="admin-toolbar">
           <select
             value={statusFilter}
@@ -157,19 +149,29 @@ export function Listings() {
             className="admin-filter w-full sm:w-auto"
           >
             <option value="">All Brands</option>
-            {brands.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
+            {brands.map((brand) => (
+              <option key={brand} value={brand}>{brand}</option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => listingsQuery.refetch()}
+            disabled={listingsQuery.isFetching}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+          >
+            {listingsQuery.isFetching ? 'Refreshing...' : 'Refresh'}
+          </button>
         </div>
       </div>
 
-      {error && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-md border border-red-200">{error}</div>}
+      {(localError || listingsQuery.isError) && (
+        <div className="p-3 bg-red-50 text-red-700 text-sm rounded-md border border-red-200">
+          {localError || 'Failed to load listings'}
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className={loading || items.length > 0 ? 'overflow-x-auto' : 'hidden'}>
+        <div className={listingsQuery.isLoading || items.length > 0 ? 'overflow-x-auto' : 'hidden'}>
           <table className="admin-table min-w-[1040px]">
             <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
               <tr>
@@ -184,108 +186,126 @@ export function Listings() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="px-4 md:px-6 py-8 text-center">
-                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900" />
-                  </td>
-                </tr>
-              ) : (
-                items.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td>
-                      {item.images && item.images.length > 0 ? (
-                        <img
-                          src={item.images[0].imageUrl}
-                          alt=""
-                          className="h-10 w-10 rounded object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded bg-gray-200" />
-                      )}
-                    </td>
-                    <td className="font-mono text-xs text-gray-500">{item.id}</td>
-                    <td className="font-medium text-gray-900">{item.brand}</td>
-                    <td className="max-w-[220px] truncate text-gray-600">{item.model}</td>
-                    <td className="text-gray-900">₱{Number(item.price).toLocaleString('en-PH')}</td>
-                    <td>
-                      <StatusBadge status={item.status} />
-                    </td>
-                    <td className="text-gray-500">
-                      {new Date(item.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="text-right">
-                      <div className="flex flex-wrap justify-end gap-2">
-                        {item.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleApprove(String(item.id))}
-                              disabled={actionLoading === String(item.id)}
-                              className="px-2 py-1 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => {
-                                setRejectTarget(item);
-                                setModalValue('');
-                              }}
-                              disabled={actionLoading === String(item.id)}
-                              className="px-2 py-1 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
-                        {item.status !== 'pending' && (
-                          <>
-                            <button
-                              onClick={() => {
-                                setPriceTarget(item);
-                                setModalValue(String(item.price));
-                              }}
-                              className="px-2 py-1 text-xs font-medium bg-blue-600 text-white rounded"
-                            >
-                              Edit
-                            </button>
-                            {item.status !== 'removed' && <button onClick={() => handleStatus(item.id, 'remove')} className="px-2 py-1 text-xs font-medium bg-gray-700 text-white rounded">Remove</button>}
-                            {item.status === 'removed' && <button onClick={() => handleStatus(item.id, 'restore')} className="px-2 py-1 text-xs font-medium bg-green-600 text-white rounded">Restore</button>}
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
+              {listingsQuery.isLoading
+                ? Array.from({ length: 6 }).map((_, index) => (
+                    <tr key={index}>
+                      <td colSpan={8}>
+                        <div className="h-10 animate-pulse rounded bg-slate-100" />
+                      </td>
+                    </tr>
+                  ))
+                : items.map((item) => {
+                    const itemBusy = isMutating && (
+                      statusMutation.variables?.id === item.id ||
+                      rejectMutation.variables?.id === item.id ||
+                      priceMutation.variables?.id === item.id
+                    );
+                    return (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td>
+                          {item.images && item.images.length > 0 ? (
+                            <img
+                              src={cloudinaryImageUrl(item.images[0].imageUrl, { width: 96, height: 96 })}
+                              alt={`${item.brand} ${item.model}`}
+                              width={40}
+                              height={40}
+                              className="h-10 w-10 rounded object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded bg-gray-200" />
+                          )}
+                        </td>
+                        <td className="font-mono text-xs text-gray-500">{item.id}</td>
+                        <td className="font-medium text-gray-900">{item.brand}</td>
+                        <td className="max-w-[220px] truncate text-gray-600">{item.model}</td>
+                        <td className="text-gray-900">₱{Number(item.price).toLocaleString('en-PH')}</td>
+                        <td><StatusBadge status={item.status} /></td>
+                        <td className="text-gray-500">{new Date(item.createdAt).toLocaleDateString()}</td>
+                        <td className="text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            {item.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => statusMutation.mutate({ id: item.id, action: 'approve' })}
+                                  disabled={itemBusy}
+                                  className="px-2 py-1 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setRejectTarget(item);
+                                    setModalValue('');
+                                  }}
+                                  disabled={itemBusy}
+                                  className="px-2 py-1 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            {item.status !== 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setPriceTarget(item);
+                                    setModalValue(String(item.price));
+                                  }}
+                                  disabled={itemBusy}
+                                  className="px-2 py-1 text-xs font-medium bg-blue-600 text-white rounded disabled:opacity-50"
+                                >
+                                  Edit
+                                </button>
+                                {item.status !== 'removed' && (
+                                  <button
+                                    onClick={() => statusMutation.mutate({ id: item.id, action: 'remove' })}
+                                    disabled={itemBusy}
+                                    className="px-2 py-1 text-xs font-medium bg-gray-700 text-white rounded disabled:opacity-50"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                                {item.status === 'removed' && (
+                                  <button
+                                    onClick={() => statusMutation.mutate({ id: item.id, action: 'restore' })}
+                                    disabled={itemBusy}
+                                    className="px-2 py-1 text-xs font-medium bg-green-600 text-white rounded disabled:opacity-50"
+                                  >
+                                    Restore
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
             </tbody>
           </table>
         </div>
-        {!loading && items.length === 0 && (
+        {!listingsQuery.isLoading && items.length === 0 && (
           <div className="border-t border-gray-200 px-4 py-10 text-center text-sm text-gray-500">
             No listings found
           </div>
         )}
 
-        {/* Pagination */}
         <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-gray-500">
-            Showing {items.length} of {total} listings
-          </p>
+          <p className="text-sm text-gray-500">Showing {items.length} of {total} listings</p>
           <div className="flex gap-1">
             <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1 || loading}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={page <= 1 || listingsQuery.isFetching}
               className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
             >
               Prev
             </button>
-            <span className="px-3 py-1 text-sm text-gray-600">
-              {page} / {totalPages}
-            </span>
+            <span className="px-3 py-1 text-sm text-gray-600">{page} / {totalPages}</span>
             <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages || loading}
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={page >= totalPages || listingsQuery.isFetching}
               className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
             >
               Next
@@ -293,6 +313,7 @@ export function Listings() {
           </div>
         </div>
       </div>
+
       {(rejectTarget || priceTarget) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
           <div className="admin-surface w-full max-w-md p-5">
@@ -327,7 +348,8 @@ export function Listings() {
               </button>
               <button
                 onClick={rejectTarget ? submitReject : submitPrice}
-                className="rounded-md bg-slate-950 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                disabled={rejectMutation.isPending || priceMutation.isPending}
+                className="rounded-md bg-slate-950 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 Save
               </button>

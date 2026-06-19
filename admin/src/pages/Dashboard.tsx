@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -42,28 +42,25 @@ const METRIC_LABELS: Record<string, string> = {
 };
 
 export function Dashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['admin', 'dashboard'],
+    queryFn: async () => (await api.get<DashboardData>('/admin/dashboard')).data,
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    api
-      .get<DashboardData>('/admin/dashboard')
-      .then((res) => setData(res.data))
-      .catch(() => setError('Failed to load dashboard data'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
-      </div>
-    );
+  if (isLoading) {
+    return <DashboardSkeleton />;
   }
 
   if (error || !data) {
-    return <div className="text-red-600">{error || 'Something went wrong'}</div>;
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <p>Failed to load dashboard data.</p>
+        <button className="mt-3 rounded bg-red-700 px-3 py-2 text-sm font-medium text-white" onClick={() => refetch()}>
+          Retry
+        </button>
+      </div>
+    );
   }
 
   const { metrics } = data;
@@ -83,7 +80,18 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="admin-page-header">
-        <h1 className="admin-page-title">Dashboard</h1>
+        <div>
+          <h1 className="admin-page-title">Dashboard</h1>
+          <p className="mt-1 text-sm text-slate-500">Cached results refresh automatically in the background.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {isFetching ? 'Refreshing…' : 'Refresh'}
+        </button>
       </div>
 
       {/* Metrics */}
@@ -198,6 +206,24 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6" aria-label="Loading dashboard">
+      <div className="h-9 w-44 animate-pulse rounded bg-slate-200" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+        {Array.from({ length: 8 }).map((_, index) => (
+          <div key={index} className="h-24 animate-pulse rounded-lg border border-slate-200 bg-white" />
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div className="h-72 animate-pulse rounded-lg border border-slate-200 bg-white" />
+        <div className="h-72 animate-pulse rounded-lg border border-slate-200 bg-white" />
+      </div>
+      <div className="h-80 animate-pulse rounded-lg border border-slate-200 bg-white" />
     </div>
   );
 }

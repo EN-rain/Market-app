@@ -19,10 +19,29 @@ class PocketTradeImageCache {
   static ImageProvider provider(String url) {
     final normalizedUrl = url.trim();
     return CachedNetworkImageProvider(
-      normalizedUrl,
+      optimizedUrl(normalizedUrl),
       cacheKey: key(normalizedUrl),
       cacheManager: manager,
     );
+  }
+
+  static String optimizedUrl(
+    String url, {
+    int? width,
+    int? height,
+    String crop = 'fill',
+  }) {
+    if (!url.contains('res.cloudinary.com') || !url.contains('/upload/')) {
+      return url;
+    }
+    final transforms = [
+      if (width != null) 'w_$width',
+      if (height != null) 'h_$height',
+      'c_$crop',
+      'q_auto',
+      'f_auto',
+    ].join(',');
+    return url.replaceFirst('/upload/', '/upload/$transforms/');
   }
 }
 
@@ -59,8 +78,14 @@ class CachedAppImage extends StatelessWidget {
       return ImageFallback(icon: placeholderIcon, width: width, height: height);
     }
 
+    final optimizedUrl = PocketTradeImageCache.optimizedUrl(
+      normalizedUrl,
+      width: maxDiskCacheWidth ?? memCacheWidth,
+      height: maxDiskCacheHeight ?? memCacheHeight,
+    );
+
     return CachedNetworkImage(
-      imageUrl: normalizedUrl,
+      imageUrl: optimizedUrl,
       cacheKey: PocketTradeImageCache.key(normalizedUrl),
       cacheManager: PocketTradeImageCache.manager,
       fit: fit,

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../api/api_client.dart';
 import '../models/listing.dart';
+import '../storage/listings_cache.dart';
 import '../storage/secure_storage.dart';
 import '../widgets/listing_card.dart';
 
@@ -46,40 +47,71 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _handleScroll() {
     if (!_scrollCtrl.hasClients) return;
-    if (_scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 200) {
+    if (_scrollCtrl.position.pixels >=
+        _scrollCtrl.position.maxScrollExtent - 200) {
       _loadMore();
     }
   }
 
   Future<void> _loadFirst() async {
+    if (_items.isEmpty) {
+      final cached = await ListingsCache.readHomeListings();
+      if (mounted && cached != null && cached.items.isNotEmpty) {
+        setState(() {
+          _items
+            ..clear()
+            ..addAll(cached.items.map(
+                (e) => Listing.fromJson(Map<String, dynamic>.from(e as Map))));
+          _hasMore = _items.length < cached.total;
+          _page = 2;
+          _loadingFirst = false;
+          _error = null;
+        });
+      }
+    }
+
     setState(() {
-      _items.clear();
       _page = 1;
       _hasMore = true;
-      _loadingFirst = true;
+      _loadingFirst = _items.isEmpty;
       _error = null;
     });
-    await _loadMore();
+    await _loadPage(1, replace: true);
     if (mounted) setState(() => _loadingFirst = false);
   }
 
   Future<void> _loadMore() async {
     if (_loadingMore || !_hasMore) return;
+    await _loadPage(_page);
+  }
+
+  Future<void> _loadPage(int page, {bool replace = false}) async {
     setState(() => _loadingMore = true);
     try {
-      final res = await _api.listListings(page: _page);
+      final res = await _api.listListings(page: page);
       final items = (res['items'] as List<dynamic>? ?? const [])
           .map((e) => Listing.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
       final total = (res['total'] as num?)?.toInt() ?? 0;
+      if (page == 1) {
+        await ListingsCache.writeHomeListings(res);
+      }
       if (!mounted) return;
       setState(() {
-        _items.addAll(items);
+        if (replace) {
+          _items
+            ..clear()
+            ..addAll(items);
+        } else {
+          _items.addAll(items);
+        }
         _hasMore = _items.length < total;
-        _page += 1;
+        _page = page + 1;
       });
     } catch (e) {
-      if (mounted) setState(() => _error = 'Failed to load listings: $e');
+      if (mounted && _items.isEmpty) {
+        setState(() => _error = 'Failed to load listings: $e');
+      }
     } finally {
       if (mounted) setState(() => _loadingMore = false);
     }
@@ -107,7 +139,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     } else if (_items.isEmpty) {
-      body = const Center(child: Text('No listings yet — be the first to sell!'));
+      body =
+          const Center(child: Text('No listings yet — be the first to sell!'));
     } else {
       body = RefreshIndicator(
         onRefresh: _loadFirst,
@@ -124,7 +157,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     height: 52,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Row(

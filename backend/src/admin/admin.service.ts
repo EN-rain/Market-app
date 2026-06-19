@@ -10,6 +10,8 @@ import { AdminUsersQueryDto } from './dto/admin-users-query.dto';
 
 @Injectable()
 export class AdminService {
+  private dashboardCache: { value: any; expiresAt: number } | null = null;
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -36,7 +38,12 @@ export class AdminService {
   }
 
   async dashboard() {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60_000);
+    const now = Date.now();
+    if (this.dashboardCache && this.dashboardCache.expiresAt > now) {
+      return this.dashboardCache.value;
+    }
+
+    const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60_000);
     const [
       userStatusCounts,
       listingStatusCounts,
@@ -66,7 +73,7 @@ export class AdminService {
     const listingCounts = Object.fromEntries(listingStatusCounts.map((row) => [row.status, row._count._all]));
     const totalUsers = Object.values(userCounts).reduce((sum, count) => sum + count, 0);
     const totalListings = Object.values(listingCounts).reduce((sum, count) => sum + count, 0);
-    return {
+    const response = {
       metrics: {
         totalUsers,
         activeUsers: userCounts.active ?? 0,
@@ -88,6 +95,13 @@ export class AdminService {
         createdAt: a.createdAt,
       })),
     };
+
+    this.dashboardCache = {
+      value: response,
+      expiresAt: now + 45_000,
+    };
+
+    return response;
   }
 
   async listListings(query: AdminListingsQueryDto) {
@@ -272,6 +286,7 @@ export class AdminService {
         newValue: newValue as object,
       },
     });
+    this.dashboardCache = null;
   }
 
   private sanitizeListingUpdate(dto: Record<string, unknown>) {
