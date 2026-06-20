@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.15+16
+
+- Replace the automated QA listing image with a unique person-free product photo.
+
 ## 1.0.14+15
 
 - Replace seeded marketplace photos with distinct person-free phone product images.
