@@ -15,7 +15,7 @@ docs/      Supporting notes and test output
 ## Stack
 
 - NestJS, TypeScript, Prisma, PostgreSQL
-- Email OTP, JWT access and refresh tokens
+- Email/password sign-in, email OTP verification/reset, JWT access and refresh tokens
 - Cloudinary, Socket.IO, Firebase Cloud Messaging
 - React, Vite, Tailwind CSS, Recharts
 - Flutter, Dio, GoRouter, secure storage
@@ -63,7 +63,9 @@ Development buyer email:
 buyer@pockettrade.local
 ```
 
-In development, the OTP response includes `devCode`. Production sends the code through Mailjet.
+Seeded buyer and seller users do not have passwords by default. Use the OTP endpoints for those demo accounts, or create/reset a password-backed account through the mobile auth flow.
+
+In development, OTP responses include `devCode`. Production sends codes through Mailjet.
 
 ## Admin setup
 
@@ -105,6 +107,10 @@ mobile/android/app/google-services.json
 ```text
 POST /auth/request-otp
 POST /auth/verify-otp
+POST /auth/register
+POST /auth/login
+POST /auth/forgot-password
+POST /auth/reset-password
 POST /auth/refresh
 POST /auth/logout
 
@@ -168,3 +174,5 @@ QA logs are written to `qa-results/`.
 ## Deployment
 
 See [`DEPLOY.md`](DEPLOY.md). Do not commit environment files or service credentials.
+
+For a code-based feature status, including partial and not-currently-implemented areas, see [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md).

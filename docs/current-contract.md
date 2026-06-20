@@ -16,6 +16,36 @@ Swagger UI is available at `/api-docs`.
 
 ## Authentication
 
+The backend supports two user authentication paths:
+
+- Email/password accounts through registration and login.
+- Email OTP verification through `request-otp` and `verify-otp`, which creates the account automatically if it does not already exist.
+
+The Flutter app currently uses email/password for normal sign-in, OTP after registration, and OTP for password reset.
+
+```text
+POST /auth/register
+Body: { "email": "user@example.com", "password": "minimum-8-chars" }
+Returns: OTP metadata. Verify with /auth/verify-otp.
+```
+
+```text
+POST /auth/login
+Body: { "email": "user@example.com", "password": "minimum-8-chars" }
+Returns: accessToken, refreshToken, user
+```
+
+```text
+POST /auth/forgot-password
+Body: { "email": "user@example.com" }
+```
+
+```text
+POST /auth/reset-password
+Body: { "email": "user@example.com", "code": "123456", "password": "minimum-8-chars" }
+Returns: accessToken, refreshToken, user
+```
+
 ```text
 POST /auth/request-otp
 Body: { "email": "user@example.com" }
@@ -24,6 +54,7 @@ Body: { "email": "user@example.com" }
 ```text
 POST /auth/verify-otp
 Body: { "email": "user@example.com", "code": "123456" }
+Returns: accessToken, refreshToken, user, isNewUser
 ```
 
 ```text
@@ -36,7 +67,7 @@ POST /auth/logout
 Body: { "refreshToken": "..." }
 ```
 
-Authentication uses email only. SMS and phone-number login are not supported.
+Authentication uses email addresses only. SMS and phone-number login are not supported.
 
 ## Users
 
@@ -45,6 +76,8 @@ GET   /users/me
 PATCH /users/me
 POST  /users/me/delete-request
 ```
+
+`PATCH /users/me` accepts `displayName`, `location`, `profileImage`, and `notificationPreferences`.
 
 Suspended users are rejected by the authentication strategy.
 
@@ -69,6 +102,7 @@ POST   /listings/:id/republish
 ```
 
 `POST /listings` uses multipart form data with `photos` and the listing fields.
+`PATCH /listings/:id` updates listing text/price/status-related fields only; replacing listing photos is not currently exposed as a seller endpoint.
 
 ## Favorites
 
@@ -151,4 +185,4 @@ Development buyer email:
 buyer@pockettrade.local
 ```
 
-In development, OTP responses include `devCode`. Production sends OTP codes by email through Resend.
+In development, OTP responses include `devCode`. Production sends OTP codes by email through Mailjet.

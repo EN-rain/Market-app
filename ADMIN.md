@@ -48,11 +48,13 @@ Passwords are stored as bcrypt hashes. Do not place administrator credentials in
 ## Modules
 
 - Dashboard metrics and recent activity
-- Listing approval, rejection, editing, removal, and restoration
+- Listing approval, rejection, price editing, removal, and restoration
 - User inspection, suspension, and restoration
 - Report review and status updates
 - Search analytics
 - Administrative activity logs
+
+The backend `PATCH /admin/listings/:id` route can update listing fields, but the current React UI only exposes price editing from the listing table. Full listing field/photo editing is not currently surfaced in the admin panel.
 
 ## API routes
 

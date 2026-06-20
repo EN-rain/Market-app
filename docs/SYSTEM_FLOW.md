@@ -81,7 +81,14 @@ Examples of actions:
 
 ## 4. Authentication Flow
 
-PocketTrade uses **email OTP authentication**. A phone number is not required.
+PocketTrade uses email-based authentication. A phone number is not required.
+
+The implemented backend supports both:
+
+- Email/password registration and login.
+- Email OTP verification through `POST /auth/request-otp` and `POST /auth/verify-otp`.
+
+The current Flutter app uses password login for returning users, sends an OTP after registration, and uses OTP codes for password reset. Direct email-only OTP login is still available at the API level.
 
 ```mermaid
 sequenceDiagram
@@ -91,8 +98,9 @@ sequenceDiagram
     participant Mail as Mailjet
     participant DB as PostgreSQL
 
-    U->>M: Enters email address
-    M->>B: Request OTP
+    U->>M: Enters email and password
+    M->>B: Register account
+    B->>DB: Create or update password-backed user
     B->>B: Generate temporary OTP
     B->>DB: Save hashed OTP, expiry, and attempt limits
     B->>Mail: Send OTP email
@@ -101,7 +109,7 @@ sequenceDiagram
     U->>M: Enters OTP
     M->>B: Verify email and OTP
     B->>DB: Validate OTP and expiry
-    B->>DB: Create or load user account
+    B->>DB: Load or create user account
     B-->>M: Access token + refresh token + user data
     M->>M: Store tokens in secure storage
     M-->>U: Open home screen
@@ -110,7 +118,8 @@ sequenceDiagram
 ### Authentication rules
 
 - OTP codes expire after a limited time.
-- Resend requests have a cooldown.
+- OTP resend requests have a cooldown.
+- Passwords are stored as bcrypt hashes.
 - Verification attempts are limited.
 - Access tokens are required for protected endpoints.
 - Refresh tokens are rotated when refreshed.
@@ -124,7 +133,7 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     Start[App Starts] --> Token{Valid access token?}
-    Token -- No --> Login[Email OTP Login]
+    Token -- No --> Login[Email/password or OTP auth]
     Token -- Yes --> Home[Home]
 
     Login --> Home
@@ -196,7 +205,8 @@ sequenceDiagram
 | `active` | Approved and visible publicly |
 | `rejected` | Rejected by an administrator |
 | `sold` | Seller marked the phone as sold |
-| `archived` | Listing is no longer publicly shown |
+| `removed` | Seller or administrator removed the listing |
+| `expired` | Listing is no longer current and can be republished |
 
 ### Public visibility rule
 
@@ -481,7 +491,7 @@ flowchart TD
 
 | Module | Responsibility |
 |---|---|
-| Auth | OTP requests, verification, JWT, refresh tokens |
+| Auth | Registration, password login, OTP requests, OTP verification, password reset, JWT, refresh tokens |
 | Users | Profiles, account state, administration |
 | Listings | Create, edit, search, moderation, ownership |
 | Conversations | Create and load buyer-seller conversations |
@@ -603,7 +613,7 @@ http://YOUR-PC-IP:3000
 
 ```mermaid
 flowchart TD
-    A[Open app] --> B[Log in with email OTP]
+    A[Open app] --> B[Log in with email/password or OTP]
     B --> C[Browse or search phones]
     C --> D[Open listing]
     D --> E{Interested?}

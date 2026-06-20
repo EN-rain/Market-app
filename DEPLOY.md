@@ -31,7 +31,7 @@ CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 ```
 
-Email OTP:
+Email delivery for OTP verification and password reset:
 
 ```env
 MAILJET_API_KEY=
@@ -102,7 +102,7 @@ Configure Android signing before producing a release build.
 4. Seed the administrator and development data only when required.
 5. Deploy the admin panel with the backend URL.
 6. Build the Android app with the same backend URL.
-7. Test email OTP, image upload, chat, moderation, and push notifications.
+7. Test registration, login, email OTP verification/reset, image upload, chat, moderation, and push notifications.
 
 ## Security notes
 

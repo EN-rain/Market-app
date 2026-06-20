@@ -67,15 +67,23 @@ Configure Android signing before producing a release build.
 
 ## Authentication
 
-The app uses email-only OTP authentication.
+The app uses email/password for normal sign-in. Registration sends an email OTP before completing the account session, and password reset also uses an email OTP code.
+
+The backend also exposes direct email-only OTP login through `request-otp` and `verify-otp`, but the current Flutter sign-in screen is password-first.
 
 ```text
+POST /auth/register
+POST /auth/login
+POST /auth/forgot-password
+POST /auth/reset-password
 POST /auth/request-otp
 POST /auth/verify-otp
 POST /auth/logout
 ```
 
 In development, the backend may return `devCode`. Production sends the code through email.
+
+Seeded buyer and seller demo users do not have passwords unless one is set later. Use the OTP endpoints for those seeded accounts, or create/reset a password-backed account.
 
 ## Screens
 
