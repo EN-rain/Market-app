@@ -4,7 +4,7 @@ import { Public } from '../auth/public.decorator';
 
 interface HealthResponse {
   status: 'ok' | 'degraded';
-  db: 'ok' | 'error';
+  db: 'ok' | 'error' | 'skipped';
   uptime: number;
   version: string;
   timestamp: string;
@@ -17,13 +17,18 @@ export class HealthController {
   @Public()
   @Get('health')
   async health(): Promise<HealthResponse> {
+    const skipDb = process.env.HEALTH_CHECK_DB === 'false';
     const response: HealthResponse = {
       status: 'ok',
-      db: 'ok',
+      db: skipDb ? 'skipped' : 'ok',
       uptime: process.uptime(),
       version: process.env.npm_package_version || '0.0.1',
       timestamp: new Date().toISOString(),
     };
+    if (skipDb) {
+      return response;
+    }
+
     try {
       await this.prisma.$queryRaw`SELECT 1`;
     } catch (err) {

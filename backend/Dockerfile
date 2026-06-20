@@ -21,6 +21,8 @@ RUN npm run build
 FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+ENV RUN_MIGRATIONS_ON_START=false
+ENV HEALTH_CHECK_DB=false
 
 RUN apk add --no-cache openssl wget
 
@@ -32,5 +34,5 @@ COPY --from=builder /app/package.json ./package.json
 
 EXPOSE 3000
 
-# Render injects PORT at runtime; we listen on 3000 by default
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+# Render injects PORT at runtime; migrations can be enabled for deploys that need them.
+CMD ["sh", "-c", "if [ \"${RUN_MIGRATIONS_ON_START:-false}\" = \"true\" ]; then npx prisma migrate deploy; fi && node dist/main.js"]
