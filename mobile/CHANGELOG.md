@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.13+14
+
+- Restore the Search filter button and filter drawer with compact dropdown menus.
+
 ## 1.0.12+13
 
 - Replace the failing disk-image cache path with Flutter's native image loader.
