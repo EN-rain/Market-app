@@ -39,7 +39,8 @@ type AuthResponse = {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private static readonly otpTtlMs = 30 * 60_000;
+  private static readonly otpTtlMs = 10 * 60_000;
+  private static readonly otpResendCooldownMs = 60_000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -146,13 +147,21 @@ export class AuthService {
         orderBy: { createdAt: 'desc' },
       });
       if (active) {
-        return {
-          response: {
-            success: true,
-            message: 'A verification code is already active for this email. Use that code before requesting another.',
-            expiresAt: active.expiresAt.toISOString(),
-          },
-        };
+        const canResendAt = active.createdAt.getTime() + AuthService.otpResendCooldownMs;
+        if (Date.now() < canResendAt) {
+          return {
+            response: {
+              success: true,
+              message: 'A verification code is already active for this email. You can request a new code after 1 minute.',
+              expiresAt: active.expiresAt.toISOString(),
+            },
+          };
+        }
+
+        await tx.otpRequest.update({
+          where: { id: active.id },
+          data: { verified: true },
+        });
       }
 
       const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
@@ -353,7 +362,7 @@ export class AuthService {
             From: { Email: fromEmail, Name: fromName },
             To: [{ Email: email }],
             Subject: 'Your PocketTrade verification code',
-            TextPart: `Your PocketTrade verification code is ${code}. It expires in 30 minutes.`,
+            TextPart: `Your PocketTrade verification code is ${code}. It expires in 10 minutes.`,
           },
         ],
       }),

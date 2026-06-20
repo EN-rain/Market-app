@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.4+5
+
+- Allow OTP resend after 1 minute.
+- Make verification codes expire after 10 minutes.
+
 ## 1.0.3+4
 
 - Treat Mailjet per-message failures as OTP delivery failures.
