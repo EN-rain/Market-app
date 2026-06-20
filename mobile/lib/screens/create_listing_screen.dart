@@ -9,7 +9,8 @@ import '../models/brand.dart';
 import '../storage/secure_storage.dart';
 
 class CreateListingScreen extends StatefulWidget {
-  const CreateListingScreen({super.key, required this.apiUrl, required this.tokenStore});
+  const CreateListingScreen(
+      {super.key, required this.apiUrl, required this.tokenStore});
   final String apiUrl;
   final TokenStore tokenStore;
 
@@ -61,11 +62,14 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
   Future<void> _loadBrands() async {
     try {
-      final api = ApiClient(baseUrl: widget.apiUrl, tokenStore: widget.tokenStore);
+      final api =
+          ApiClient(baseUrl: widget.apiUrl, tokenStore: widget.tokenStore);
       final list = await api.listBrands();
       if (!mounted) return;
       setState(() {
-        _brands = list.map((e) => Brand.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+        _brands = list
+            .map((e) => Brand.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
         _loadingBrands = false;
       });
     } catch (e) {
@@ -104,8 +108,12 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
           'Photos: ${_photos.length}',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Edit')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Edit')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Submit')),
         ],
       ),
     );
@@ -115,7 +123,8 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       _error = null;
     });
     try {
-      final api = ApiClient(baseUrl: widget.apiUrl, tokenStore: widget.tokenStore);
+      final api =
+          ApiClient(baseUrl: widget.apiUrl, tokenStore: widget.tokenStore);
       await api.createListing(
         brand: _brand!,
         model: _modelCtrl.text.trim(),
@@ -129,7 +138,8 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Listing submitted - pending admin approval')),
+        const SnackBar(
+            content: Text('Listing submitted - pending admin approval')),
       );
       context.go('/home');
     } catch (e) {
@@ -155,21 +165,39 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                   children: [
                     Text(
                       'Listing details',
-                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                      style: theme.textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: _brand,
-                      decoration: const InputDecoration(labelText: 'Brand', prefixIcon: Icon(Icons.phone_iphone)),
-                      items: _brands.map((b) => DropdownMenuItem(value: b.name, child: Text(b.name))).toList(),
+                      menuMaxHeight: 280,
+                      borderRadius: BorderRadius.circular(8),
+                      decoration: const InputDecoration(
+                          labelText: 'Brand',
+                          prefixIcon: Icon(Icons.phone_iphone)),
+                      items: _brands
+                          .map((b) => DropdownMenuItem(
+                              value: b.name,
+                              child: SizedBox(
+                                  height: 48,
+                                  child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(b.name,
+                                          overflow: TextOverflow.ellipsis)))))
+                          .toList(),
                       onChanged: (v) => setState(() => _brand = v),
-                      validator: (v) => v == null || v.isEmpty ? 'Select a brand' : null,
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Select a brand' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _modelCtrl,
-                      decoration: const InputDecoration(labelText: 'Model', prefixIcon: Icon(Icons.smartphone)),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                      decoration: const InputDecoration(
+                          labelText: 'Model',
+                          prefixIcon: Icon(Icons.smartphone)),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -177,11 +205,15 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _priceCtrl,
-                            decoration: const InputDecoration(labelText: 'Price', prefixIcon: Icon(Icons.payments_outlined)),
+                            decoration: const InputDecoration(
+                                labelText: 'Price',
+                                prefixIcon: Icon(Icons.payments_outlined)),
                             keyboardType: TextInputType.number,
                             validator: (v) {
                               final n = int.tryParse(v ?? '');
-                              if (n == null || n < 1) return 'Enter a valid price';
+                              if (n == null || n < 1) {
+                                return 'Enter a valid price';
+                              }
                               return null;
                             },
                           ),
@@ -190,9 +222,25 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             initialValue: _condition,
-                            decoration: const InputDecoration(labelText: 'Condition', prefixIcon: Icon(Icons.verified_outlined)),
-                            items: _conditions.map((c) => DropdownMenuItem(value: c.value, child: Text(c.label))).toList(),
-                            onChanged: (v) => setState(() => _condition = v ?? 'good'),
+                            menuMaxHeight: 280,
+                            borderRadius: BorderRadius.circular(8),
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                                labelText: 'Condition',
+                                prefixIcon: Icon(Icons.verified_outlined)),
+                            items: _conditions
+                                .map((c) => DropdownMenuItem(
+                                    value: c.value,
+                                    child: SizedBox(
+                                        height: 48,
+                                        child: Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(c.label,
+                                                overflow:
+                                                    TextOverflow.ellipsis)))))
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => _condition = v ?? 'good'),
                           ),
                         ),
                       ],
@@ -203,15 +251,22 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _storageCtrl,
-                            decoration: const InputDecoration(labelText: 'Storage', hintText: '128GB', prefixIcon: Icon(Icons.sd_storage_outlined)),
-                            validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                            decoration: const InputDecoration(
+                                labelText: 'Storage',
+                                hintText: '128GB',
+                                prefixIcon: Icon(Icons.sd_storage_outlined)),
+                            validator: (v) => v == null || v.trim().isEmpty
+                                ? 'Required'
+                                : null,
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: TextFormField(
                             controller: _colourCtrl,
-                            decoration: const InputDecoration(labelText: 'Colour', prefixIcon: Icon(Icons.palette_outlined)),
+                            decoration: const InputDecoration(
+                                labelText: 'Colour',
+                                prefixIcon: Icon(Icons.palette_outlined)),
                           ),
                         ),
                       ],
@@ -219,17 +274,24 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _locationCtrl,
-                      decoration: const InputDecoration(labelText: 'Location', prefixIcon: Icon(Icons.place_outlined)),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                      decoration: const InputDecoration(
+                          labelText: 'Location',
+                          prefixIcon: Icon(Icons.place_outlined)),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _descriptionCtrl,
-                      decoration: const InputDecoration(labelText: 'Description', hintText: 'Battery health, included items, issues'),
+                      decoration: const InputDecoration(
+                          labelText: 'Description',
+                          hintText: 'Battery health, included items, issues'),
                       minLines: 3,
                       maxLines: 6,
                       validator: (v) {
-                        if (v == null || v.trim().length < 10) return 'Min 10 characters';
+                        if (v == null || v.trim().length < 10) {
+                          return 'Min 10 characters';
+                        }
                         return null;
                       },
                     ),
@@ -243,14 +305,19 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                           color: theme.colorScheme.errorContainer,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(_error!, style: TextStyle(color: theme.colorScheme.onErrorContainer)),
+                        child: Text(_error!,
+                            style: TextStyle(
+                                color: theme.colorScheme.onErrorContainer)),
                       ),
                     ],
                     const SizedBox(height: 16),
                     FilledButton.icon(
                       onPressed: _submitting ? null : _submit,
                       icon: _submitting
-                          ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.send),
                       label: const Text('Submit listing'),
                     ),
@@ -277,7 +344,8 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.add_a_photo, size: 32, color: theme.colorScheme.primary),
+                    Icon(Icons.add_a_photo,
+                        size: 32, color: theme.colorScheme.primary),
                     const SizedBox(height: 8),
                     const Text('Tap to select 1-5 photos'),
                   ],
@@ -292,14 +360,16 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.file(File(_photos[index].path), fit: BoxFit.cover, width: 132, height: 148),
+                      child: Image.file(File(_photos[index].path),
+                          fit: BoxFit.cover, width: 132, height: 148),
                     ),
                     Positioned(
                       top: 4,
                       right: 4,
                       child: IconButton.filledTonal(
                         tooltip: 'Remove photo',
-                        onPressed: () => setState(() => _photos.removeAt(index)),
+                        onPressed: () =>
+                            setState(() => _photos.removeAt(index)),
                         icon: const Icon(Icons.close),
                       ),
                     ),
@@ -311,7 +381,10 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   }
 
   String _conditionLabel(String value) {
-    return _conditions.firstWhere((o) => o.value == value, orElse: () => const _Option('good', 'Good')).label;
+    return _conditions
+        .firstWhere((o) => o.value == value,
+            orElse: () => const _Option('good', 'Good'))
+        .label;
   }
 }
 

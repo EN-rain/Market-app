@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.11+12
+
+- Remove search filters and the funnel control.
+- Keep listing dropdown menus compact and constrained to their option content.
+
 ## 1.0.10+11
 
 - Add profile photo preview/upload, GPS location fill, and change password.

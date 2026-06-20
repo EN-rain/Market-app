@@ -18,14 +18,6 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final _qCtrl = TextEditingController();
-  final _brandCtrl = TextEditingController();
-  final _locationCtrl = TextEditingController();
-  final _storageCtrl = TextEditingController();
-  final _minPriceCtrl = TextEditingController();
-  final _maxPriceCtrl = TextEditingController();
-
-  String _sort = 'newest';
-  String _condition = 'any';
   List<Listing> _items = [];
   bool _loading = false;
   bool _loadingMore = false;
@@ -35,23 +27,6 @@ class _SearchScreenState extends State<SearchScreen> {
 
   late final ApiClient _api =
       ApiClient(baseUrl: widget.apiUrl, tokenStore: widget.tokenStore);
-
-  static const _conditions = [
-    _Option('any', 'Any condition'),
-    _Option('brand_new', 'Brand new'),
-    _Option('like_new', 'Like new'),
-    _Option('excellent', 'Excellent'),
-    _Option('good', 'Good'),
-    _Option('fair', 'Fair'),
-  ];
-
-  static const _sorts = [
-    _Option('newest', 'Newest first'),
-    _Option('relevant', 'Most relevant'),
-    _Option('price_asc', 'Lowest price'),
-    _Option('price_desc', 'Highest price'),
-    _Option('oldest', 'Oldest first'),
-  ];
 
   Future<void> _search({bool reset = true}) async {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -73,13 +48,6 @@ class _SearchScreenState extends State<SearchScreen> {
       final nextPage = reset ? 1 : _page + 1;
       final res = await _api.listListings(
         q: _qCtrl.text.trim(),
-        brand: _brandCtrl.text.trim(),
-        location: _locationCtrl.text.trim(),
-        storage: _storageCtrl.text.trim(),
-        minPrice: int.tryParse(_minPriceCtrl.text.trim()),
-        maxPrice: int.tryParse(_maxPriceCtrl.text.trim()),
-        condition: _condition == 'any' ? null : _condition,
-        sort: _sort,
         page: nextPage,
         limit: 20,
       );
@@ -107,20 +75,6 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  void _clearFilters() {
-    setState(() {
-      _qCtrl.clear();
-      _brandCtrl.clear();
-      _locationCtrl.clear();
-      _storageCtrl.clear();
-      _minPriceCtrl.clear();
-      _maxPriceCtrl.clear();
-      _condition = 'any';
-      _sort = 'newest';
-    });
-    _search(reset: true);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -130,28 +84,13 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void dispose() {
     _qCtrl.dispose();
-    _brandCtrl.dispose();
-    _locationCtrl.dispose();
-    _storageCtrl.dispose();
-    _minPriceCtrl.dispose();
-    _maxPriceCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      endDrawer: Drawer(child: SafeArea(child: _filterDrawer(context))),
-      appBar: AppBar(
-        title: const Text('Search'),
-        actions: [
-          IconButton(
-            tooltip: 'Clear filters',
-            onPressed: _loading ? null : _clearFilters,
-            icon: const Icon(Icons.filter_alt_off_outlined),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Search')),
       body: RefreshIndicator(
         onRefresh: () => _search(reset: true),
         child: CustomScrollView(
@@ -169,7 +108,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       Center(child: Text(_error!, textAlign: TextAlign.center)))
             else if (_items.isEmpty)
               const SliverFillRemaining(
-                child: Center(child: Text('No phones matched those filters.')),
+                child: Center(child: Text('No phones matched your search.')),
               )
             else ...[
               SliverPadding(
@@ -225,120 +164,7 @@ class _SearchScreenState extends State<SearchScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(child: _queryField()),
-            const SizedBox(width: 8),
-            Builder(
-              builder: (context) => IconButton.filledTonal(
-                tooltip: 'Filters',
-                onPressed: () => Scaffold.of(context).openEndDrawer(),
-                icon: const Icon(Icons.tune),
-              ),
-            ),
-          ],
-        ),
-        if (_activeFilterCount > 0) ...[
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: InputChip(
-              avatar: const Icon(Icons.filter_alt, size: 18),
-              label: Text(
-                  '$_activeFilterCount filter${_activeFilterCount == 1 ? '' : 's'} active'),
-              onDeleted: _loading ? null : _clearFilters,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _filterDrawer(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Filters',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-              ),
-            ),
-            IconButton(
-              tooltip: 'Close',
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.close),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _filterFields(),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: _loading
-              ? null
-              : () {
-                  Navigator.of(context).maybePop();
-                  _search();
-                },
-          icon: const Icon(Icons.search),
-          label: const Text('Apply filters'),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: _loading
-              ? null
-              : () {
-                  Navigator.of(context).maybePop();
-                  _clearFilters();
-                },
-          icon: const Icon(Icons.filter_alt_off_outlined),
-          label: const Text('Clear all'),
-        ),
-      ],
-    );
-  }
-
-  Widget _filterFields() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _field(_brandCtrl, 'Brand', Icons.phone_iphone),
-        const SizedBox(height: 12),
-        _field(_locationCtrl, 'Location', Icons.place_outlined),
-        const SizedBox(height: 10),
-        _field(_storageCtrl, 'Storage', Icons.sd_storage_outlined),
-        const SizedBox(height: 10),
-        _field(_minPriceCtrl, 'Min price', Icons.payments_outlined,
-            number: true),
-        const SizedBox(height: 10),
-        _field(_maxPriceCtrl, 'Max price', Icons.price_change_outlined,
-            number: true),
-        const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
-          initialValue: _condition,
-          decoration: const InputDecoration(
-              labelText: 'Condition',
-              prefixIcon: Icon(Icons.verified_outlined)),
-          items: _conditions
-              .map(
-                  (o) => DropdownMenuItem(value: o.value, child: Text(o.label)))
-              .toList(),
-          onChanged: (v) => setState(() => _condition = v ?? 'any'),
-        ),
-        const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
-          initialValue: _sort,
-          decoration: const InputDecoration(
-              labelText: 'Sort', prefixIcon: Icon(Icons.sort)),
-          items: _sorts
-              .map(
-                  (o) => DropdownMenuItem(value: o.value, child: Text(o.label)))
-              .toList(),
-          onChanged: (v) => setState(() => _sort = v ?? 'newest'),
-        ),
+        _queryField(),
       ],
     );
   }
@@ -366,33 +192,4 @@ class _SearchScreenState extends State<SearchScreen> {
       onSubmitted: (_) => _search(),
     );
   }
-
-  Widget _field(TextEditingController controller, String label, IconData icon,
-      {bool number = false}) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
-      keyboardType: number ? TextInputType.number : TextInputType.text,
-      textInputAction: TextInputAction.next,
-      onChanged: (_) => setState(() {}),
-    );
-  }
-
-  int get _activeFilterCount {
-    var count = 0;
-    if (_brandCtrl.text.trim().isNotEmpty) count++;
-    if (_locationCtrl.text.trim().isNotEmpty) count++;
-    if (_storageCtrl.text.trim().isNotEmpty) count++;
-    if (_minPriceCtrl.text.trim().isNotEmpty) count++;
-    if (_maxPriceCtrl.text.trim().isNotEmpty) count++;
-    if (_condition != 'any') count++;
-    if (_sort != 'newest') count++;
-    return count;
-  }
-}
-
-class _Option {
-  const _Option(this.value, this.label);
-  final String value;
-  final String label;
 }
