@@ -29,6 +29,9 @@ class _ListingDetailsScreenState extends State<ListingDetailsScreen> {
   String? _error;
   bool _loading = true;
   bool _actioning = false;
+  bool _saved = false;
+  bool _reported = false;
+  bool _blocked = false;
 
   static final _money =
       NumberFormat.currency(locale: 'en_PH', symbol: '₱', decimalDigits: 0);
@@ -53,6 +56,88 @@ class _ListingDetailsScreenState extends State<ListingDetailsScreen> {
         _error = 'Failed to load listing: $e';
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _toggleSaved(Listing listing) async {
+    setState(() => _actioning = true);
+    try {
+      if (_saved) {
+        await _api.removeFavorite(listing.id);
+      } else {
+        await _api.addFavorite(listing.id);
+      }
+      if (!mounted) return;
+      setState(() => _saved = !_saved);
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_saved ? 'Saved to favorites' : 'Removed')));
+    } finally {
+      if (mounted) setState(() => _actioning = false);
+    }
+  }
+
+  Future<void> _reportListing(Listing listing) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report listing?'),
+        content:
+            const Text('This sends the listing to PocketTrade moderation.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Report')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    setState(() => _actioning = true);
+    try {
+      await _api.report({
+        'reportedListingId': int.parse(listing.id),
+        'reason': 'scam',
+        'details': 'Reported from listing details',
+      });
+      if (!mounted) return;
+      setState(() => _reported = true);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Report submitted')));
+    } finally {
+      if (mounted) setState(() => _actioning = false);
+    }
+  }
+
+  Future<void> _blockSeller(Listing listing) async {
+    if (listing.seller == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Block seller?'),
+        content:
+            const Text('You will no longer be able to contact this seller.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Block')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    setState(() => _actioning = true);
+    try {
+      await _api.blockUser(listing.seller!.id);
+      if (!mounted) return;
+      setState(() => _blocked = true);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Seller blocked')));
+    } finally {
+      if (mounted) setState(() => _actioning = false);
     }
   }
 
@@ -179,44 +264,67 @@ class _ListingDetailsScreenState extends State<ListingDetailsScreen> {
                     ),
                     const SizedBox(width: 8),
                     IconButton.filledTonal(
-                      tooltip: 'Save',
-                      onPressed: () async {
-                        await _api.addFavorite(l.id);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Saved')));
-                        }
-                      },
-                      icon: const Icon(Icons.favorite_outline),
+                      tooltip: _saved ? 'Remove from favorites' : 'Save',
+                      style: _saved
+                          ? IconButton.styleFrom(
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.onPrimary)
+                          : null,
+                      onPressed: _actioning ? null : () => _toggleSaved(l),
+                      icon: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: Icon(
+                          _saved ? Icons.favorite : Icons.favorite_outline,
+                          key: ValueKey(_saved),
+                        ),
+                      ),
                     ),
                     IconButton.filledTonal(
-                      tooltip: 'Report',
-                      onPressed: () async {
-                        await _api.report({
-                          'reportedListingId': int.parse(l.id),
-                          'reason': 'scam',
-                          'details': 'Reported from listing details'
-                        });
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Report submitted')));
-                        }
-                      },
-                      icon: const Icon(Icons.flag_outlined),
+                      tooltip: _reported ? 'Report submitted' : 'Report',
+                      style: _reported
+                          ? IconButton.styleFrom(
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .secondaryContainer,
+                              foregroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .onSecondaryContainer)
+                          : null,
+                      onPressed: _actioning || _reported
+                          ? null
+                          : () => _reportListing(l),
+                      icon: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: Icon(
+                          _reported ? Icons.flag : Icons.flag_outlined,
+                          key: ValueKey(_reported),
+                        ),
+                      ),
                     ),
                     if (l.seller != null)
                       IconButton.filledTonal(
-                        tooltip: 'Block seller',
-                        onPressed: () async {
-                          await _api.blockUser(l.seller!.id);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Seller blocked')));
-                          }
-                        },
-                        icon: const Icon(Icons.block),
+                        tooltip: _blocked ? 'Seller blocked' : 'Block seller',
+                        style: _blocked
+                            ? IconButton.styleFrom(
+                                backgroundColor: Theme.of(context)
+                                    .colorScheme
+                                    .errorContainer,
+                                foregroundColor: Theme.of(context)
+                                    .colorScheme
+                                    .onErrorContainer)
+                            : null,
+                        onPressed: _actioning || _blocked
+                            ? null
+                            : () => _blockSeller(l),
+                        icon: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          child: Icon(
+                            _blocked ? Icons.block : Icons.block_outlined,
+                            key: ValueKey(_blocked),
+                          ),
+                        ),
                       ),
                   ],
                 ),

@@ -194,37 +194,28 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                           v == null || v.trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _priceCtrl,
-                            decoration: const InputDecoration(
-                                labelText: 'Price',
-                                prefixIcon: Icon(Icons.payments_outlined)),
-                            keyboardType: TextInputType.number,
-                            validator: (v) {
-                              final n = int.tryParse(v ?? '');
-                              if (n == null || n < 1) {
-                                return 'Enter a valid price';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _inlinePicker(
-                            id: 'condition',
-                            label: 'Condition',
-                            icon: Icons.verified_outlined,
-                            value: _condition,
-                            options: _conditions,
-                            onSelected: (value) =>
-                                setState(() => _condition = value),
-                          ),
-                        ),
-                      ],
+                    TextFormField(
+                      controller: _priceCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Price',
+                          prefixIcon: Icon(Icons.payments_outlined)),
+                      keyboardType: TextInputType.number,
+                      validator: (v) {
+                        final n = int.tryParse(v ?? '');
+                        if (n == null || n < 1) {
+                          return 'Enter a valid price';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _inlinePicker(
+                      id: 'condition',
+                      label: 'Condition',
+                      icon: Icons.verified_outlined,
+                      value: _condition,
+                      options: _conditions,
+                      onSelected: (value) => setState(() => _condition = value),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -369,22 +360,123 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
               ),
               if (expanded)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: options.map((option) {
-                      final selected = option.value == value;
-                      return ChoiceChip(
-                        label:
-                            Text(option.label, overflow: TextOverflow.ellipsis),
-                        selected: selected,
-                        onSelected: (_) {
-                          onSelected(option.value);
-                          setState(() => _openPicker = null);
-                        },
-                      );
-                    }).toList(),
+                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 176),
+                    child: Scrollbar(
+                      thumbVisibility: options.length > 4,
+                      child: SingleChildScrollView(
+                        primary: false,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final itemWidth = (constraints.maxWidth - 8) / 2;
+                            return Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: options.map((option) {
+                                final selected = option.value == value;
+                                return SizedBox(
+                                  width: itemWidth,
+                                  child: Semantics(
+                                    selected: selected,
+                                    button: true,
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(8),
+                                        onTap: () {
+                                          onSelected(option.value);
+                                          setState(() => _openPicker = null);
+                                        },
+                                        child: AnimatedContainer(
+                                          duration:
+                                              const Duration(milliseconds: 180),
+                                          curve: Curves.easeOut,
+                                          height: 44,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10),
+                                          decoration: BoxDecoration(
+                                            color: selected
+                                                ? theme.colorScheme
+                                                    .primaryContainer
+                                                : theme.colorScheme.surface,
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: selected
+                                                  ? theme.colorScheme.primary
+                                                  : theme.colorScheme
+                                                      .outlineVariant,
+                                              width: selected ? 1.5 : 1,
+                                            ),
+                                            boxShadow: selected
+                                                ? [
+                                                    BoxShadow(
+                                                      color: theme
+                                                          .colorScheme.primary
+                                                          .withValues(
+                                                              alpha: .12),
+                                                      blurRadius: 8,
+                                                      offset:
+                                                          const Offset(0, 2),
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              AnimatedSwitcher(
+                                                duration: const Duration(
+                                                    milliseconds: 150),
+                                                child: selected
+                                                    ? Icon(
+                                                        Icons.check_rounded,
+                                                        key: const ValueKey(
+                                                            'selected'),
+                                                        size: 17,
+                                                        color: theme.colorScheme
+                                                            .primary,
+                                                      )
+                                                    : const SizedBox(
+                                                        key: ValueKey(
+                                                            'unselected'),
+                                                        width: 17,
+                                                      ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  option.label,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: theme
+                                                      .textTheme.labelMedium
+                                                      ?.copyWith(
+                                                    fontWeight: selected
+                                                        ? FontWeight.w600
+                                                        : FontWeight.w500,
+                                                    color: selected
+                                                        ? theme.colorScheme
+                                                            .onPrimaryContainer
+                                                        : theme.colorScheme
+                                                            .onSurface,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
                   ),
                 ),
             ],

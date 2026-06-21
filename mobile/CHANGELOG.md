@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.18+19
+
+- Stack Sell price and condition controls, replace Search filter popups with inline options, and add visible safety-action states.
+
 ## 1.0.17+18
 
 - Remove the automatic duplicate Search drawer button; filters now open only from the icon beside the search input.

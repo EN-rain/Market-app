@@ -26,6 +26,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   String _sort = 'newest';
   String _condition = 'any';
+  String? _openFilterPicker;
   List<Listing> _items = [];
   bool _loading = false;
   bool _loadingMore = false;
@@ -317,47 +318,100 @@ class _SearchScreenState extends State<SearchScreen> {
         _field(_maxPriceCtrl, 'Max price', Icons.price_change_outlined,
             number: true),
         const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
-          initialValue: _condition,
-          menuMaxHeight: 280,
-          borderRadius: BorderRadius.circular(8),
-          isExpanded: true,
-          decoration: const InputDecoration(
-              labelText: 'Condition',
-              prefixIcon: Icon(Icons.verified_outlined)),
-          items: _conditions
-              .map((o) => DropdownMenuItem(
-                  value: o.value,
-                  child: SizedBox(
-                      height: 48,
-                      child: Align(
-                          alignment: Alignment.centerLeft,
-                          child:
-                              Text(o.label, overflow: TextOverflow.ellipsis)))))
-              .toList(),
-          onChanged: (v) => setState(() => _condition = v ?? 'any'),
+        _compactDropdown(
+          label: 'Condition',
+          icon: Icons.verified_outlined,
+          value: _condition,
+          options: _conditions,
+          onSelected: (value) => setState(() => _condition = value),
         ),
         const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
-          initialValue: _sort,
-          menuMaxHeight: 280,
-          borderRadius: BorderRadius.circular(8),
-          isExpanded: true,
-          decoration: const InputDecoration(
-              labelText: 'Sort', prefixIcon: Icon(Icons.sort)),
-          items: _sorts
-              .map((o) => DropdownMenuItem(
-                  value: o.value,
-                  child: SizedBox(
-                      height: 48,
-                      child: Align(
-                          alignment: Alignment.centerLeft,
-                          child:
-                              Text(o.label, overflow: TextOverflow.ellipsis)))))
-              .toList(),
-          onChanged: (v) => setState(() => _sort = v ?? 'newest'),
+        _compactDropdown(
+          label: 'Sort',
+          icon: Icons.sort,
+          value: _sort,
+          options: _sorts,
+          onSelected: (value) => setState(() => _sort = value),
         ),
       ],
+    );
+  }
+
+  Widget _compactDropdown({
+    required String label,
+    required IconData icon,
+    required String value,
+    required List<_Option> options,
+    required ValueChanged<String> onSelected,
+  }) {
+    final selectedLabel = options
+        .firstWhere((option) => option.value == value,
+            orElse: () => options.first)
+        .label;
+    final expanded = _openFilterPicker == label;
+    final theme = Theme.of(context);
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () =>
+                  setState(() => _openFilterPicker = expanded ? null : label),
+              child: SizedBox(
+                height: 56,
+                child: Row(
+                  children: [
+                    const SizedBox(width: 12),
+                    Icon(icon, color: theme.colorScheme.onSurfaceVariant),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(label, style: theme.textTheme.labelSmall),
+                          const SizedBox(height: 2),
+                          Text(selectedLabel,
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                    ),
+                    Icon(expanded ? Icons.expand_less : Icons.expand_more),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+              ),
+            ),
+            if (expanded)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: options
+                      .map((option) => ChoiceChip(
+                            label: Text(option.label),
+                            selected: option.value == value,
+                            onSelected: (_) {
+                              onSelected(option.value);
+                              setState(() => _openFilterPicker = null);
+                            },
+                          ))
+                      .toList(),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
