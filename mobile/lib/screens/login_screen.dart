@@ -255,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _loadRememberedLogin();
-    Future<void>.delayed(const Duration(milliseconds: 260), () {
+    Future<void>.delayed(const Duration(milliseconds: 850), () {
       if (mounted) setState(() => _formReady = true);
     });
   }
@@ -322,7 +322,15 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? const SizedBox(
                             key: ValueKey('login-loading'),
                             height: 176,
-                            child: Center(child: CircularProgressIndicator()),
+                            child: Center(
+                              child: SizedBox(
+                                width: 160,
+                                child: LinearProgressIndicator(
+                                  borderRadius:
+                                      BorderRadius.all(Radius.circular(4)),
+                                ),
+                              ),
+                            ),
                           )
                         : Column(
                             key: const ValueKey('login-form'),

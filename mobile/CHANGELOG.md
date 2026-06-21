@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.24+25
+
+- Set Search filter overlay to 70% screen width and make the login loading indicator visible.
+
 ## 1.0.23+24
 
 - Add a welcome/loading reveal to sign-in, isolate listing action states, and move Search filters into a right-side overlay.

@@ -280,7 +280,7 @@ class _SearchScreenState extends State<SearchScreen> {
               duration: const Duration(milliseconds: 260),
               curve: Curves.easeOutCubic,
               child: SizedBox(
-                width: MediaQuery.sizeOf(context).width.clamp(0, 420),
+                width: MediaQuery.sizeOf(context).width * .70,
                 child: Material(
                   color: theme.colorScheme.surface,
                   elevation: 12,
