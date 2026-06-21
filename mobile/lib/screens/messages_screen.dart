@@ -43,7 +43,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages')),
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text('Messages'),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _items.isEmpty

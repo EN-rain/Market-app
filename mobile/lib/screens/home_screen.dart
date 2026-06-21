@@ -242,7 +242,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Home')),
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text('Home'),
+      ),
       body: body,
     );
   }

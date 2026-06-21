@@ -15,10 +15,12 @@ class ProfileScreen extends StatefulWidget {
     super.key,
     required this.apiUrl,
     required this.tokenStore,
+    this.showListingsOnOpen = false,
   });
 
   final String apiUrl;
   final TokenStore tokenStore;
+  final bool showListingsOnOpen;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -37,6 +39,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _load();
+    if (widget.showListingsOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showMyListings();
+      });
+    }
   }
 
   Future<void> _load() async {
@@ -597,7 +604,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text('Profile'),
+      ),
       body: _loading
           ? const _ProfileLoading()
           : _error != null
@@ -696,7 +706,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _statusLabel(String? value) {
     return switch (value) {
-      'active' => 'Active listing',
+      'pending' => 'Pending approval',
+      'approved' || 'active' => 'Approved',
+      'rejected' => 'Rejected',
       'sold' => 'Marked sold',
       'removed' => 'Removed listing',
       null || '' => 'Listing',

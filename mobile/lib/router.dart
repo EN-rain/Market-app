@@ -58,7 +58,12 @@ GoRouter appRouter(FlutterSecureStorage storage) {
           ),
           GoRoute(
             path: '/profile',
-            builder: (context, state) => ProfileScreen(apiUrl: _apiUrl, tokenStore: tokenStore),
+            builder: (context, state) => ProfileScreen(
+              apiUrl: _apiUrl,
+              tokenStore: tokenStore,
+              showListingsOnOpen:
+                  state.uri.queryParameters['showListings'] == '1',
+            ),
           ),
         ],
       ),

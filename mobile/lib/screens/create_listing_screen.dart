@@ -113,19 +113,51 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Preview listing'),
-        content: Text(
-          '${_brand ?? ''} ${_modelCtrl.text.trim()}\n'
-          'Price: ${_priceCtrl.text.trim()}\n'
-          'Condition: ${_conditionLabel(_condition)}\n'
-          'Photos: ${_photos.length}',
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(_photos.first.path),
+                  height: 160,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '${_brand ?? ''} ${_modelCtrl.text.trim()}',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              _previewRow('Price', '₱${_priceCtrl.text.trim()}'),
+              _previewRow('Condition', _conditionLabel(_condition)),
+              _previewRow('Storage', _storageCtrl.text.trim()),
+              _previewRow('Colour', _colourCtrl.text.trim()),
+              _previewRow('Location', _locationCtrl.text.trim()),
+              _previewRow('Photos', '${_photos.length}'),
+              const SizedBox(height: 10),
+              Text(
+                _descriptionCtrl.text.trim(),
+                maxLines: 5,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Edit')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Edit'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Submit')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Submit listing'),
+          ),
         ],
       ),
     );
@@ -151,9 +183,10 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Listing submitted - pending admin approval')),
+          content: Text('Listing submitted and pending admin approval'),
+        ),
       );
-      context.go('/home');
+      context.go('/profile?showListings=1');
     } catch (e) {
       if (mounted) setState(() => _error = 'Failed to create listing: $e');
     } finally {
@@ -165,7 +198,10 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Sell your phone')),
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text('Sell your phone'),
+      ),
       body: _loadingBrands
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -245,6 +281,10 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                             decoration: const InputDecoration(
                                 labelText: 'Colour',
                                 prefixIcon: Icon(Icons.palette_outlined)),
+                            validator: (v) =>
+                                v == null || v.trim().isEmpty
+                                    ? 'Required'
+                                    : null,
                           ),
                         ),
                       ],
@@ -297,7 +337,9 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                               width: 18,
                               child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.send),
-                      label: const Text('Submit listing'),
+                      label: Text(
+                        _submitting ? 'Uploading listing...' : 'Submit listing',
+                      ),
                     ),
                   ],
                 ),
@@ -314,39 +356,129 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     required ValueChanged<String> onSelected,
     bool enabled = true,
   }) {
-    return ButtonTheme(
-      alignedDropdown: true,
-      child: DropdownButtonFormField<String>(
-        initialValue:
-            options.any((option) => option.value == value) ? value : null,
-        isExpanded: true,
-        itemHeight: 48,
-        menuMaxHeight: 240,
-        elevation: 4,
-        borderRadius: BorderRadius.circular(8),
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon),
+    final theme = Theme.of(context);
+    final selected = options.where((option) => option.value == value).firstOrNull;
+    final availableOptions =
+        options.where((option) => option.value != value).toList();
+
+    return LayoutBuilder(
+      builder: (context, constraints) => MenuAnchor(
+        crossAxisUnconstrained: false,
+        style: MenuStyle(
+          minimumSize: WidgetStatePropertyAll(Size(constraints.maxWidth, 0)),
+          maximumSize:
+              WidgetStatePropertyAll(Size(constraints.maxWidth, 280)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+          backgroundColor: const WidgetStatePropertyAll(Colors.white),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(6),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
         ),
-        hint: Text(enabled ? 'Select $label' : 'Loading $label...'),
-        items: options
-            .map((option) => DropdownMenuItem(
-                  value: option.value,
+        menuChildren: availableOptions
+            .map(
+              (option) => MenuItemButton(
+                onPressed: () => onSelected(option.value),
+                style: const ButtonStyle(
+                  minimumSize: WidgetStatePropertyAll(Size.fromHeight(44)),
+                  padding: WidgetStatePropertyAll(
+                    EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                ),
+                child: SizedBox(
+                  width: constraints.maxWidth - 32,
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      option.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: Text(option.label),
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+        builder: (context, controller, child) => Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: enabled
+                ? () => controller.isOpen ? controller.close() : controller.open()
+                : null,
+            child: SizedBox(
+              height: 56,
+              child: Row(
+                children: [
+                  const SizedBox(width: 12),
+                  Icon(icon, color: theme.colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(label, style: theme.textTheme.labelSmall),
+                        const SizedBox(height: 2),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          transitionBuilder: (child, animation) => FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0, 0.15),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          ),
+                          child: Text(
+                            selected?.label ??
+                                (enabled
+                                    ? 'Select $label'
+                                    : 'Loading $label...'),
+                            key: ValueKey(selected?.value ?? 'empty-$label'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ))
-            .toList(),
-        onChanged: enabled
-            ? (selected) {
-                if (selected != null) onSelected(selected);
-              }
-            : null,
+                  AnimatedRotation(
+                    turns: controller.isOpen ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    child: const Icon(Icons.expand_more),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _previewRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 82,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
       ),
     );
   }

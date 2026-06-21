@@ -124,10 +124,12 @@ class _SearchScreenState extends State<SearchScreen> {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(sheetContext).height * 0.86,
-          child: _filterDrawer(sheetContext),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(sheetContext).height * 0.86,
+            child: _filterDrawer(sheetContext, setSheetState),
+          ),
         ),
       ),
     );
@@ -153,7 +155,10 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Search')),
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text('Search'),
+      ),
       body: RefreshIndicator(
         onRefresh: () => _search(reset: true),
         child: CustomScrollView(
@@ -254,7 +259,10 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _filterDrawer(BuildContext context) {
+  Widget _filterDrawer(
+    BuildContext context,
+    StateSetter setSheetState,
+  ) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
@@ -274,7 +282,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        _filterFields(),
+        _filterFields(setSheetState),
         const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: _loading
@@ -301,7 +309,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _filterFields() {
+  Widget _filterFields(StateSetter setSheetState) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -322,7 +330,10 @@ class _SearchScreenState extends State<SearchScreen> {
           icon: Icons.verified_outlined,
           value: _condition,
           options: _conditions,
-          onSelected: (value) => setState(() => _condition = value),
+          onSelected: (value) {
+            setState(() => _condition = value);
+            setSheetState(() {});
+          },
         ),
         const SizedBox(height: 10),
         _compactDropdown(
@@ -330,7 +341,10 @@ class _SearchScreenState extends State<SearchScreen> {
           icon: Icons.sort,
           value: _sort,
           options: _sorts,
-          onSelected: (value) => setState(() => _sort = value),
+          onSelected: (value) {
+            setState(() => _sort = value);
+            setSheetState(() {});
+          },
         ),
       ],
     );
@@ -343,27 +357,110 @@ class _SearchScreenState extends State<SearchScreen> {
     required List<_Option> options,
     required ValueChanged<String> onSelected,
   }) {
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      isExpanded: true,
-      itemHeight: 48,
-      menuMaxHeight: 240,
-      elevation: 4,
-      borderRadius: BorderRadius.circular(8),
-      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
-      items: options
-          .map((option) => DropdownMenuItem(
-                value: option.value,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(option.label,
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+    final theme = Theme.of(context);
+    final selected = options.firstWhere(
+      (option) => option.value == value,
+      orElse: () => options.first,
+    );
+    final availableOptions =
+        options.where((option) => option.value != value).toList();
+
+    return LayoutBuilder(
+      builder: (context, constraints) => MenuAnchor(
+        crossAxisUnconstrained: false,
+        style: MenuStyle(
+          minimumSize: WidgetStatePropertyAll(Size(constraints.maxWidth, 0)),
+          maximumSize:
+              WidgetStatePropertyAll(Size(constraints.maxWidth, 280)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+          backgroundColor: const WidgetStatePropertyAll(Colors.white),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(6),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        menuChildren: availableOptions
+            .map(
+              (option) => MenuItemButton(
+                onPressed: () => onSelected(option.value),
+                style: const ButtonStyle(
+                  minimumSize: WidgetStatePropertyAll(Size.fromHeight(44)),
+                  padding: WidgetStatePropertyAll(
+                    EdgeInsets.symmetric(horizontal: 16),
+                  ),
                 ),
-              ))
-          .toList(),
-      onChanged: (selected) {
-        if (selected != null) onSelected(selected);
-      },
+                child: SizedBox(
+                  width: constraints.maxWidth - 32,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(option.label),
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+        builder: (context, controller, child) => Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () =>
+                controller.isOpen ? controller.close() : controller.open(),
+            child: SizedBox(
+              height: 56,
+              child: Row(
+                children: [
+                  const SizedBox(width: 12),
+                  Icon(icon, color: theme.colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(label, style: theme.textTheme.labelSmall),
+                        const SizedBox(height: 2),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          transitionBuilder: (child, animation) => FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0, 0.15),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          ),
+                          child: Text(
+                            selected.label,
+                            key: ValueKey(selected.value),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: controller.isOpen ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    child: const Icon(Icons.expand_more),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
