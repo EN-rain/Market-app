@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.21+22
+
+- Fix automatic single-device discovery in the Android rebuild/install script.
+
 ## 1.0.20+21
 
 - Use compact native dropdown menus in Sell and Search filters; options now overlay the form instead of expanding it.

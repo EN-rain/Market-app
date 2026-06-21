@@ -19,24 +19,24 @@ function Set-Stage {
 }
 
 function Get-ConnectedDevice {
-    $devices = & $adb devices | Select-Object -Skip 1 | ForEach-Object {
+    $devices = @(& $adb devices | Select-Object -Skip 1 | ForEach-Object {
         if ($_ -match "^(?<serial>\S+)\s+device$") { $Matches.serial }
-    }
+    })
     if ($devices.Count -eq 1) { return $devices[0] }
     if ($devices.Count -gt 1) { throw "More than one ADB device is connected: $($devices -join ', '). Disconnect the extra device." }
 
     Set-Stage 65 "No device connected. Looking for the single wireless ADB address..."
-    $addresses = & $adb mdns services | ForEach-Object {
+    $addresses = @(& $adb mdns services | ForEach-Object {
         if ($_ -match "(?<address>(?:\d{1,3}\.){3}\d{1,3}:\d+)") { $Matches.address }
-    } | Sort-Object -Unique
+    } | Sort-Object -Unique)
     if ($addresses.Count -ne 1) {
         throw "No connected phone found. Enable Wireless debugging, pair/connect it once, then rerun this script."
     }
 
     & $adb connect $addresses[0] | Out-Host
-    $devices = & $adb devices | Select-Object -Skip 1 | ForEach-Object {
+    $devices = @(& $adb devices | Select-Object -Skip 1 | ForEach-Object {
         if ($_ -match "^(?<serial>\S+)\s+device$") { $Matches.serial }
-    }
+    })
     if ($devices.Count -ne 1) { throw "ADB could not connect to the phone at $($addresses[0])." }
     return $devices[0]
 }
