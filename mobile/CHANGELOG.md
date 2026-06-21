@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.20+21
+
+- Use compact native dropdown menus in Sell and Search filters; options now overlay the form instead of expanding it.
+
 ## 1.0.19+20
 
 - Limit profile photos to 1 MB and all listing photos combined to 5 MB.

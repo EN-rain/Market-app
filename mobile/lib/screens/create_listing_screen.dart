@@ -29,7 +29,6 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
   String? _brand;
   String _condition = 'good';
-  String? _openPicker;
   List<XFile> _photos = [];
   List<Brand> _brands = [];
   bool _loadingBrands = true;
@@ -87,8 +86,8 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     try {
       final picked = await picker.pickMultiImage(imageQuality: 80);
       final selected = picked.take(5).toList();
-      final sizes = await Future.wait(
-          selected.map((photo) => File(photo.path).length()));
+      final sizes =
+          await Future.wait(selected.map((photo) => File(photo.path).length()));
       final totalBytes = sizes.fold<int>(0, (total, size) => total + size);
       if (totalBytes > 5 * 1024 * 1024) {
         setState(() => _error = 'Listing photos must total 5 MB or smaller');
@@ -182,8 +181,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                           ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 12),
-                    _inlinePicker(
-                      id: 'brand',
+                    _dropdownField(
                       label: 'Brand',
                       icon: Icons.phone_iphone,
                       value: _brand,
@@ -191,6 +189,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                           .map((brand) => _Option(brand.name, brand.name))
                           .toList(),
                       onSelected: (value) => setState(() => _brand = value),
+                      enabled: !_loadingBrands && _brands.isNotEmpty,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -217,8 +216,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    _inlinePicker(
-                      id: 'condition',
+                    _dropdownField(
                       label: 'Condition',
                       icon: Icons.verified_outlined,
                       value: _condition,
@@ -308,194 +306,37 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     );
   }
 
-  Widget _inlinePicker({
-    required String id,
+  Widget _dropdownField({
     required String label,
     required IconData icon,
     required String? value,
     required List<_Option> options,
     required ValueChanged<String> onSelected,
+    bool enabled = true,
   }) {
-    final expanded = _openPicker == id;
-    final valueLabel = options
-        .firstWhere((option) => option.value == value,
-            orElse: () => const _Option('', 'Select'))
-        .label;
-    final theme = Theme.of(context);
-
-    return Semantics(
-      button: true,
-      expanded: expanded,
-      label: '$label: $valueLabel',
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () => setState(() => _openPicker = expanded ? null : id),
-                child: SizedBox(
-                  height: 56,
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 12),
-                      Icon(icon, color: theme.colorScheme.onSurfaceVariant),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(label, style: theme.textTheme.labelSmall),
-                            const SizedBox(height: 2),
-                            Text(valueLabel,
-                                maxLines: 1, overflow: TextOverflow.ellipsis),
-                          ],
-                        ),
-                      ),
-                      AnimatedRotation(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOutCubic,
-                        turns: expanded ? .5 : 0,
-                        child: const Icon(Icons.expand_more),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                  ),
-                ),
-              ),
-              if (expanded)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 176),
-                    child: Scrollbar(
-                      thumbVisibility: options.length > 4,
-                      child: SingleChildScrollView(
-                        primary: false,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final itemWidth = (constraints.maxWidth - 8) / 2;
-                            return Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: options.map((option) {
-                                final selected = option.value == value;
-                                return SizedBox(
-                                  width: itemWidth,
-                                  child: Semantics(
-                                    selected: selected,
-                                    button: true,
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(8),
-                                        onTap: () {
-                                          onSelected(option.value);
-                                          setState(() => _openPicker = null);
-                                        },
-                                        child: AnimatedContainer(
-                                          duration:
-                                              const Duration(milliseconds: 180),
-                                          curve: Curves.easeOut,
-                                          height: 44,
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 10),
-                                          decoration: BoxDecoration(
-                                            color: selected
-                                                ? theme.colorScheme
-                                                    .primaryContainer
-                                                : theme.colorScheme.surface,
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                            border: Border.all(
-                                              color: selected
-                                                  ? theme.colorScheme.primary
-                                                  : theme.colorScheme
-                                                      .outlineVariant,
-                                              width: selected ? 1.5 : 1,
-                                            ),
-                                            boxShadow: selected
-                                                ? [
-                                                    BoxShadow(
-                                                      color: theme
-                                                          .colorScheme.primary
-                                                          .withValues(
-                                                              alpha: .12),
-                                                      blurRadius: 8,
-                                                      offset:
-                                                          const Offset(0, 2),
-                                                    ),
-                                                  ]
-                                                : null,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              AnimatedSwitcher(
-                                                duration: const Duration(
-                                                    milliseconds: 150),
-                                                child: selected
-                                                    ? Icon(
-                                                        Icons.check_rounded,
-                                                        key: const ValueKey(
-                                                            'selected'),
-                                                        size: 17,
-                                                        color: theme.colorScheme
-                                                            .primary,
-                                                      )
-                                                    : const SizedBox(
-                                                        key: ValueKey(
-                                                            'unselected'),
-                                                        width: 17,
-                                                      ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  option.label,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: theme
-                                                      .textTheme.labelMedium
-                                                      ?.copyWith(
-                                                    fontWeight: selected
-                                                        ? FontWeight.w600
-                                                        : FontWeight.w500,
-                                                    color: selected
-                                                        ? theme.colorScheme
-                                                            .onPrimaryContainer
-                                                        : theme.colorScheme
-                                                            .onSurface,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+    return DropdownButtonFormField<String>(
+      initialValue:
+          options.any((option) => option.value == value) ? value : null,
+      isExpanded: true,
+      menuMaxHeight: 280,
+      borderRadius: BorderRadius.circular(8),
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
       ),
+      hint: Text(enabled ? 'Select $label' : 'Loading $label...'),
+      items: options
+          .map((option) => DropdownMenuItem(
+                value: option.value,
+                child: Text(option.label,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              ))
+          .toList(),
+      onChanged: enabled
+          ? (selected) {
+              if (selected != null) onSelected(selected);
+            }
+          : null,
     );
   }
 
