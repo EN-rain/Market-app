@@ -24,6 +24,7 @@ dependencies:
   intl: ^0.19.0
   socket_io_client: ^3.0.2
   shared_preferences: 2.3.5
+  flutter_native_splash: ^2.4.8
 
 dev_dependencies:
   flutter_test:
@@ -35,3 +36,15 @@ flutter:
   assets:
     - assets/images/pockettrade_icon.png
     - ../PocketTrade_transparent.png
+
+flutter_native_splash:
+  color: "#F5F7F6"
+  image: ../PocketTrade_transparent.png
+  android: true
+  ios: false
+  web: false
+  fullscreen: true
+  android_12:
+    color: "#F5F7F6"
+    image: ../PocketTrade_transparent.png
+    icon_background_color: "#F5F7F6"
