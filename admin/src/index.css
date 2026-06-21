@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-slate-100 text-slate-900 antialiased;
+    @apply bg-[#f4f7fb] text-slate-900 antialiased;
     font-feature-settings: "tnum";
   }
 
@@ -51,10 +51,14 @@
   }
 
   .admin-table th {
-    @apply whitespace-nowrap px-4 py-3;
+    @apply whitespace-nowrap bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500;
   }
 
   .admin-table td {
     @apply px-4 py-3 align-middle;
+  }
+
+  .admin-table tbody tr {
+    @apply border-t border-slate-100 transition-colors hover:bg-slate-50/80;
   }
 }
