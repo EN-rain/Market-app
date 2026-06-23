@@ -29,13 +29,7 @@ function App() {
       ) {
         event.preventDefault()
 
-        const adminUrl = import.meta.env.VITE_ADMIN_URL
-        if (!adminUrl) {
-          console.error('VITE_ADMIN_URL is not configured.')
-          return
-        }
-
-        const destination = new URL(adminUrl)
+        const destination = new URL('/admin', window.location.origin)
         destination.searchParams.set('entry', ADMIN_ENTRY_MARKER)
         window.location.assign(destination.toString())
       }
