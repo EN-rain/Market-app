@@ -22,6 +22,7 @@ import { Public } from './public.decorator';
 
 const REFRESH_COOKIE = 'pt_refresh_token';
 const REFRESH_COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const WEB_CLIENT_HEADER = 'x-pockettrade-client';
 
 type AuthResult = {
   accessToken: string;
@@ -43,6 +44,10 @@ export class AuthController {
       path: '/auth',
       maxAge: REFRESH_COOKIE_MAX_AGE_MS,
     };
+  }
+
+  private isWebClient(request: Request): boolean {
+    return request.headers[WEB_CLIENT_HEADER] === 'web';
   }
 
   private setRefreshCookie(response: Response, refreshToken: string): void {
@@ -74,8 +79,10 @@ export class AuthController {
     return token;
   }
 
-  private sendAuthResult(response: Response, result: AuthResult): Omit<AuthResult, 'refreshToken'> {
+  private sendAuthResult(request: Request, response: Response, result: AuthResult) {
     this.setRefreshCookie(response, result.refreshToken);
+    if (!this.isWebClient(request)) return result;
+
     const { refreshToken: _refreshToken, ...publicResult } = result;
     return publicResult;
   }
@@ -92,9 +99,13 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) response: Response) {
+  async login(
+    @Req() request: Request,
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const result = await this.authService.login(dto);
-    return this.sendAuthResult(response, result);
+    return this.sendAuthResult(request, response, result);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -110,11 +121,12 @@ export class AuthController {
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(
+    @Req() request: Request,
     @Body() dto: ResetPasswordDto,
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.authService.resetPassword(dto);
-    return this.sendAuthResult(response, result);
+    return this.sendAuthResult(request, response, result);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -130,11 +142,12 @@ export class AuthController {
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   async verifyOtp(
+    @Req() request: Request,
     @Body() dto: VerifyOtpDto,
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.authService.verifyOtp(dto);
-    return this.sendAuthResult(response, result);
+    return this.sendAuthResult(request, response, result);
   }
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
@@ -148,7 +161,7 @@ export class AuthController {
   ) {
     const result = await this.authService.refreshTokens(this.getRefreshToken(request, dto));
     this.setRefreshCookie(response, result.refreshToken);
-    return { accessToken: result.accessToken };
+    return this.isWebClient(request) ? { accessToken: result.accessToken } : result;
   }
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
