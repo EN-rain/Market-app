@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -12,9 +12,11 @@ function hasActiveAdminSession(): boolean {
   if (!accessToken || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
     localStorage.removeItem('adminAccessToken');
     localStorage.removeItem('adminSessionExpiresAt');
+    sessionStorage.removeItem('accessToken');
     return false;
   }
 
+  sessionStorage.setItem('accessToken', accessToken);
   return true;
 }
 
@@ -67,6 +69,20 @@ function protectedPage(child: React.ReactNode) {
 }
 
 function App() {
+  useEffect(() => {
+    const expiresAt = Number(localStorage.getItem('adminSessionExpiresAt'));
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return;
+
+    const logoutTimer = window.setTimeout(() => {
+      localStorage.removeItem('adminAccessToken');
+      localStorage.removeItem('adminSessionExpiresAt');
+      sessionStorage.removeItem('accessToken');
+      window.location.replace('/login');
+    }, expiresAt - Date.now());
+
+    return () => window.clearTimeout(logoutTimer);
+  }, []);
+
   if (!canEnterAdmin) {
     window.location.replace('/login');
     return null;
