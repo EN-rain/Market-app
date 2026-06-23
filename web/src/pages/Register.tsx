@@ -23,7 +23,14 @@ export default function Register() {
       await api.post<OtpResponse>('/auth/register', { email, password })
       navigate('/verify-otp', { state: { email, mode: 'register' } })
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.')
+      const msg = err.response?.data?.message
+      if (Array.isArray(msg)) {
+        setError(msg.join('. '))
+      } else if (typeof msg === 'string' && msg) {
+        setError(msg)
+      } else {
+        setError('Registration failed. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -55,7 +62,7 @@ export default function Register() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
               className="w-full rounded-xl border border-input-border bg-surface px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="••••••••"
             />

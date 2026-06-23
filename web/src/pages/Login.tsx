@@ -22,7 +22,14 @@ export default function Login() {
       login(accessToken, refreshToken, user)
       navigate('/', { replace: true })
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid email or password')
+      const msg = err.response?.data?.message
+      if (Array.isArray(msg)) {
+        setError(msg.join('. '))
+      } else if (typeof msg === 'string' && msg) {
+        setError(msg)
+      } else {
+        setError('Invalid email or password')
+      }
     } finally {
       setLoading(false)
     }
