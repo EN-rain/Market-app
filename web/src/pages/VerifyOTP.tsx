@@ -75,8 +75,8 @@ export default function VerifyOTP() {
         email: email?.trim().toLowerCase(),
         code: fullCode,
       })
-      const { accessToken, refreshToken, user } = response.data
-      login(accessToken, refreshToken, user)
+      const { accessToken, user } = response.data
+      login(accessToken, user)
       navigate('/', { replace: true })
     } catch (requestError) {
       setError(getRequestErrorMessage(requestError, 'Invalid verification code.'))
@@ -137,31 +137,20 @@ export default function VerifyOTP() {
 
           {error && <p className="text-error text-sm text-center" role="alert">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-primary text-white font-medium py-3 text-sm hover:bg-primary-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Checking…' : isResetMode ? 'Continue' : 'Verify'}
+          <button type="submit" disabled={loading} className="w-full rounded-xl bg-primary text-white font-medium py-3 text-sm hover:bg-primary-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            {loading ? 'Checking...' : isResetMode ? 'Continue' : 'Verify'}
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm text-text-secondary">
-          Didn&apos;t receive a code?{' '}
-          <button
-            type="button"
-            onClick={handleResend}
-            disabled={resendLoading || cooldown > 0}
-            className="text-primary hover:underline font-medium disabled:opacity-60"
-          >
-            {resendLoading ? 'Sending…' : cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend'}
+          Did not receive a code?{' '}
+          <button type="button" onClick={handleResend} disabled={resendLoading || cooldown > 0} className="text-primary hover:underline font-medium disabled:opacity-60">
+            {resendLoading ? 'Sending...' : cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend'}
           </button>
         </p>
 
         <p className="mt-2 text-center text-sm text-text-secondary">
-          <Link to="/login" className="text-primary hover:underline font-medium">
-            Back to sign in
-          </Link>
+          <Link to="/login" className="text-primary hover:underline font-medium">Back to sign in</Link>
         </p>
       </div>
     </div>
