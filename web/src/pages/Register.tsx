@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
+import { getRequestErrorMessage } from '../lib/errorMessage'
 import type { OtpResponse } from '../lib/types'
 
 export default function Register() {
@@ -11,26 +12,27 @@ export default function Register() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
     setError('')
+
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
     }
+
     setLoading(true)
     try {
-      await api.post<OtpResponse>('/auth/register', { email, password })
-      navigate('/verify-otp', { state: { email, mode: 'register' } })
-    } catch (err: any) {
-      const msg = err.response?.data?.message
-      if (Array.isArray(msg)) {
-        setError(msg.join('. '))
-      } else if (typeof msg === 'string' && msg) {
-        setError(msg)
-      } else {
-        setError('Registration failed. Please try again.')
-      }
+      const normalizedEmail = email.trim().toLowerCase()
+      await api.post<OtpResponse>('/auth/register', {
+        email: normalizedEmail,
+        password,
+      })
+      navigate('/verify-otp', {
+        state: { email: normalizedEmail, mode: 'register' },
+      })
+    } catch (requestError) {
+      setError(getRequestErrorMessage(requestError, 'Registration failed. Please try again.'))
     } finally {
       setLoading(false)
     }
@@ -48,7 +50,8 @@ export default function Register() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
               required
               className="w-full rounded-xl border border-input-border bg-surface px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="you@example.com"
@@ -60,7 +63,8 @@ export default function Register() {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="new-password"
               required
               minLength={8}
               className="w-full rounded-xl border border-input-border bg-surface px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
@@ -73,16 +77,16 @@ export default function Register() {
             <input
               type="password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              autoComplete="new-password"
               required
+              minLength={8}
               className="w-full rounded-xl border border-input-border bg-surface px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="••••••••"
             />
           </div>
 
-          {error && (
-            <p className="text-error text-sm">{error}</p>
-          )}
+          {error && <p className="text-error text-sm" role="alert">{error}</p>}
 
           <button
             type="submit"
