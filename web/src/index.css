@@ -1,50 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap');
 
 @theme {
-  /* ── Brand ── */
-  --color-primary:       #7C3AED;
-  --color-primary-light: #9D5FF3;
-  --color-primary-dark:  #5B21B6;
-  --color-secondary:     #A78BFA;
-  --color-accent:        #22C55E;
-  --color-accent-dark:   #16A34A;
+  /* ── Brand (matches Android app & admin dashboard) ── */
+  --color-primary:        #0B6B61;   /* main teal — Flutter primary */
+  --color-primary-light:  #0D8577;
+  --color-primary-dark:   #08544B;
+  --color-secondary:      #1F5FBF;   /* blue — Flutter secondary */
+  --color-tertiary:       #E59E0B;   /* amber — Flutter tertiary */
 
-  /* ── Surface ── */
-  --color-background:    #FAF5FF;
-  --color-surface:       #FFFFFF;
-  --color-surface-high:  #F3E8FF;
-  --color-surface-hero:  #EDE9FE;
+  /* ── Surface (matches Flutter scaffoldBackground & admin bg) ── */
+  --color-background:     #F5F7F6;   /* Flutter background */
+  --color-surface:        #FFFFFF;
+  --color-surface-high:   #E8EFEC;   /* Flutter surfaceContainerHighest */
+  --color-surface-hero:   #DCF0EB;   /* teal-tinted hero */
 
   /* ── Text ── */
-  --color-foreground:       #4C1D95;
-  --color-text-primary:     #1E0A3C;
-  --color-text-secondary:   #5B21B6;
-  --color-text-muted:       #7C6EA6;
+  --color-text-primary:   #10201D;   /* Flutter appBar foreground */
+  --color-text-secondary: #2D4A46;
+  --color-text-muted:     #5E7A75;
 
   /* ── Utility ── */
-  --color-error:            #DC2626;
-  --color-warning:          #D97706;
-  --color-border:           #DDD6FE;
-  --color-border-strong:    #C4B5FD;
-  --color-nav-indicator:    #EDE9FE;
-  --color-input-border:     #C4B5FD;
-  --color-card-border:      #E9D5FF;
+  --color-error:          #B42318;   /* Flutter error */
+  --color-warning:        #E59E0B;
+  --color-success:        #16A34A;
 
-  /* ── Typography ── */
-  --font-heading: 'Poppins', system-ui, sans-serif;
-  --font-sans:    'Open Sans', system-ui, sans-serif;
+  /* ── Borders (matches Flutter card borderColor) ── */
+  --color-border:         #D4DDDA;   /* Flutter input border */
+  --color-border-strong:  #B0C4BE;
+  --color-card-border:    #E2E8E5;   /* Flutter cardTheme border */
+  --color-nav-indicator:  #DCEFEB;   /* Flutter navigationBar indicator */
+  --color-input-border:   #D4DDDA;
 
-  /* ── Radius ── */
-  --radius-sm:  8px;
-  --radius-md:  14px;
-  --radius-lg:  20px;
-  --radius-xl:  28px;
+  /* ── Typography (Inter — matches admin dashboard feel) ── */
+  --font-heading: 'Inter', system-ui, sans-serif;
+  --font-sans:    'Inter', system-ui, sans-serif;
+
+  /* ── Radius (matches Flutter r:8) ── */
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  20px;
 
   /* ── Shadow ── */
-  --shadow-card: 0 2px 12px 0 rgba(124,58,237,0.08), 0 1px 3px 0 rgba(124,58,237,0.06);
-  --shadow-card-hover: 0 8px 32px 0 rgba(124,58,237,0.18), 0 2px 8px 0 rgba(124,58,237,0.10);
-  --shadow-nav: 0 4px 24px 0 rgba(124,58,237,0.12);
+  --shadow-card:       0 1px 4px 0 rgba(11,107,97,0.07), 0 1px 2px 0 rgba(11,107,97,0.05);
+  --shadow-card-hover: 0 6px 24px 0 rgba(11,107,97,0.14), 0 2px 6px 0 rgba(11,107,97,0.08);
+  --shadow-nav:        0 1px 0 0 var(--color-card-border), 0 2px 8px 0 rgba(11,107,97,0.06);
 }
 
 /* ─── Base ─────────────────────────────────────────── */
@@ -70,16 +71,13 @@
   }
 
   a, button {
-    transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+    transition: color 0.2s ease, background-color 0.2s ease,
+                box-shadow 0.2s ease, transform 0.15s ease;
   }
 
-  button:not(:disabled) {
-    cursor: pointer;
-  }
+  button:not(:disabled) { cursor: pointer; }
 
-  input, button, select, textarea {
-    font-family: inherit;
-  }
+  input, button, select, textarea { font-family: inherit; }
 
   :focus-visible {
     outline: 2px solid var(--color-primary);
@@ -106,43 +104,44 @@
   .scrollbar-hide::-webkit-scrollbar { display: none; }
 
   /* Animations */
-  .animate-fade-in   { animation: fadeIn   0.4s ease-out both; }
-  .animate-slide-up  { animation: slideUp  0.45s ease-out both; }
-  .animate-scale-in  { animation: scaleIn  0.25s ease-out both; }
-  .animate-pulse-soft{ animation: pulseSoft 2s ease-in-out infinite; }
+  .animate-fade-in    { animation: fadeIn   0.35s ease-out both; }
+  .animate-slide-up   { animation: slideUp  0.4s  ease-out both; }
+  .animate-scale-in   { animation: scaleIn  0.22s ease-out both; }
+  .animate-pulse-soft { animation: pulseSoft 2s ease-in-out infinite; }
 
-  /* Card lift pattern */
+  /* Card lift — matches Flutter card elevation feel */
   .card-lift {
-    transition: transform 0.22s ease, box-shadow 0.22s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
   .card-lift:hover {
-    transform: translateY(-4px);
+    transform: translateY(-3px);
     box-shadow: var(--shadow-card-hover);
   }
 
-  /* Gradient badge */
-  .badge-primary {
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
-    color: #fff;
+  /* Hero — soft teal tint matching brand */
+  .hero-gradient {
+    background: linear-gradient(135deg, #E8F4F2 0%, #F0F7F5 60%, #F5F7F6 100%);
   }
 
-  /* Hero gradient bg */
-  .hero-gradient {
-    background: linear-gradient(135deg, #EDE9FE 0%, #F3E8FF 50%, #FAF5FF 100%);
+  /* Teal pill / tag */
+  .badge-primary {
+    background-color: #E8F4F2;
+    color: var(--color-primary);
+    font-weight: 600;
   }
 }
 
 /* ─── Keyframes ─────────────────────────────────────── */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(18px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.94); }
+  from { opacity: 0; transform: scale(0.95); }
   to   { opacity: 1; transform: scale(1); }
 }
 @keyframes pulseSoft {

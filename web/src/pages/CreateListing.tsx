@@ -147,7 +147,7 @@ export default function CreateListing() {
     onSuccess: (data) => {
       navigate(`/listing/${data.id}`)
     },
-    onError: (err: any) => {
+    onError: (err: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
       setSubmitError(
         err?.response?.data?.message || 'Failed to create listing. Please try again.'
       )

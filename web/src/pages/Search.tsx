@@ -233,7 +233,7 @@ export default function Search() {
           <div className="text-center py-12 text-error">
             <p>Failed to load results</p>
             <p className="text-sm text-text-muted mt-1">
-              {(error as any)?.response?.data?.message || (error as Error).message}
+              {(error as any /* eslint-disable-line @typescript-eslint/no-explicit-any */)?.response?.data?.message || (error as Error).message}
             </p>
           </div>
         )}

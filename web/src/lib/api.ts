@@ -16,6 +16,11 @@ const sharedConfig = {
   },
 }
 
+const warmupApi = axios.create({
+  ...sharedConfig,
+  timeout: 65000,
+})
+
 export const refreshApi = axios.create({
   ...sharedConfig,
   timeout: 15000,
@@ -34,6 +39,22 @@ export const uploadApi = axios.create({
   },
   timeout: 60000,
 })
+
+let wakePromise: Promise<void> | null = null
+
+export function wakeBackend(): Promise<void> {
+  if (wakePromise) return wakePromise
+
+  wakePromise = warmupApi
+    .get('/health')
+    .then(() => undefined)
+    .catch(() => undefined)
+    .finally(() => {
+      wakePromise = null
+    })
+
+  return wakePromise
+}
 
 let refreshPromise: Promise<string | null> | null = null
 

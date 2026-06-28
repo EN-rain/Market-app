@@ -269,6 +269,7 @@ export default function Profile() {
   // Sync local notification state when profile loads
   useEffect(() => {
     if (profile?.notificationPreferences) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNotifEmail(profile.notificationPreferences.messages ?? true)
       setNotifPush(profile.notificationPreferences.listingUpdates ?? true)
     }
@@ -384,7 +385,7 @@ export default function Profile() {
       setConfirmPassword('')
       setPasswordError('')
     },
-    onError: (err: any) => {
+    onError: (err: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
       setPasswordError(err?.response?.data?.message || 'Failed to change password.')
     },
   })
@@ -416,7 +417,7 @@ export default function Profile() {
       await logout()
       navigate('/login')
     },
-    onError: (err: any) => {
+    onError: (err: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
       alert(err?.response?.data?.message || 'Failed to delete account.')
     },
   })
@@ -438,7 +439,7 @@ export default function Profile() {
         <div className="text-center py-20 text-error">
           <p>Failed to load profile</p>
           <p className="text-sm text-text-muted mt-1">
-            {(profileError as any)?.response?.data?.message || (profileError as Error).message}
+            {(profileError as any /* eslint-disable-line @typescript-eslint/no-explicit-any */)?.response?.data?.message || (profileError as Error).message}
           </p>
         </div>
       </AppShell>
@@ -705,7 +706,7 @@ export default function Profile() {
               <div className="text-center py-12 text-error">
                 <p>Failed to load listings</p>
                 <p className="text-sm text-text-muted mt-1">
-                  {(listingsError as any)?.response?.data?.message ||
+                  {(listingsError as any /* eslint-disable-line @typescript-eslint/no-explicit-any */)?.response?.data?.message ||
                     (listingsError as Error).message}
                 </p>
                 <button

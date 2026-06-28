@@ -16,7 +16,7 @@ export default function ForgotPassword() {
     try {
       await api.post<OtpResponse>('/auth/forgot-password', { email })
       navigate('/verify-otp', { state: { email, mode: 'reset' } })
-    } catch (err: any) {
+    } catch (err: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) {
       setError(err.response?.data?.message || 'Failed to send reset code')
     } finally {
       setLoading(false)

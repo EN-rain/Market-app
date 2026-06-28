@@ -9,11 +9,11 @@ interface ListingCardProps {
 }
 
 const conditionColors: Record<string, string> = {
-  new:           'bg-accent/10 text-accent-dark',
-  like_new:      'bg-primary/10 text-primary',
-  excellent:     'bg-primary/10 text-primary',
-  good:          'bg-secondary/20 text-text-secondary',
-  fair:          'bg-yellow-50 text-yellow-700',
+  new:           'bg-emerald-50 text-emerald-700',
+  like_new:      'bg-surface-high text-primary',
+  excellent:     'bg-surface-high text-primary',
+  good:          'bg-blue-50 text-secondary',
+  fair:          'bg-amber-50 text-amber-700',
   poor:          'bg-red-50 text-error',
 }
 

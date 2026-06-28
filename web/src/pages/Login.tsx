@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import axios from 'axios'
+import { api, wakeBackend } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { getRequestErrorMessage } from '../lib/errorMessage'
 import type { AuthResponse } from '../lib/types'
@@ -12,6 +13,19 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [warmingUp, setWarmingUp] = useState(true)
+
+  useEffect(() => {
+    let active = true
+
+    void wakeBackend().finally(() => {
+      if (active) setWarmingUp(false)
+    })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -20,10 +34,26 @@ export default function Login() {
 
     try {
       const normalizedEmail = email.trim().toLowerCase()
-      const response = await api.post<AuthResponse>('/auth/login', {
-        email: normalizedEmail,
-        password,
-      })
+      let response: { data: AuthResponse }
+
+      try {
+        response = await api.post<AuthResponse>('/auth/login', {
+          email: normalizedEmail,
+          password,
+        })
+      } catch (requestError) {
+        if (axios.isAxiosError(requestError) && requestError.code === 'ECONNABORTED') {
+          setError('Waking up the server. Retrying sign in...')
+          await wakeBackend()
+          response = await api.post<AuthResponse>('/auth/login', {
+            email: normalizedEmail,
+            password,
+          })
+        } else {
+          throw requestError
+        }
+      }
+
       const { accessToken, user } = response.data
       login(accessToken, user)
       navigate('/', { replace: true })
@@ -39,6 +69,7 @@ export default function Login() {
       <div className="w-full max-w-sm bg-surface rounded-2xl shadow-sm border border-card-border p-6 md:p-8">
         <h1 className="text-2xl font-semibold text-text-primary text-center mb-1">Welcome back</h1>
         <p className="text-text-secondary text-center text-sm mb-6">Sign in to your PocketTrade account</p>
+        {warmingUp && <p className="mb-4 text-center text-sm text-text-secondary">Starting the server...</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -53,8 +84,8 @@ export default function Login() {
 
           {error && <p className="text-error text-sm" role="alert">{error}</p>}
 
-          <button type="submit" disabled={loading} className="w-full rounded-xl bg-primary text-white font-medium py-3 text-sm hover:bg-primary-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
-            {loading ? 'Signing in...' : 'Sign in'}
+          <button type="submit" disabled={loading || warmingUp} className="w-full rounded-xl bg-primary text-white font-medium py-3 text-sm hover:bg-primary-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            {loading ? 'Signing in...' : warmingUp ? 'Starting server...' : 'Sign in'}
           </button>
         </form>
 

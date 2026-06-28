@@ -29,7 +29,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         className="hidden md:block sticky top-0 z-40 w-full"
         style={{ boxShadow: 'var(--shadow-nav)' }}
       >
-        <div className="bg-white/90 backdrop-blur-md border-b border-border">
+        <div className="bg-white/95 backdrop-blur-md border-b border-border">
           <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-8">
 
             {/* Logo */}
@@ -70,7 +70,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   <Link
                     to="/sell"
                     onClick={handleSellClick}
-                    className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white text-sm font-semibold px-5 py-2 rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer"
+                    className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white text-sm font-semibold px-5 py-2 rounded-lg transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -100,7 +100,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                   <Link
                     to="/register"
-                    className="inline-flex items-center bg-primary hover:bg-primary-dark text-white text-sm font-semibold px-5 py-2 rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer"
+                    className="inline-flex items-center bg-primary hover:bg-primary-dark text-white text-sm font-semibold px-5 py-2 rounded-lg transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
                   >
                     Get started
                   </Link>
