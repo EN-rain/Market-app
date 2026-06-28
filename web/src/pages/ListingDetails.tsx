@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import type { Listing } from '../lib/types'
 import HeartIcon from '../components/icons/HeartIcon'
 import LocationIcon from '../components/icons/LocationIcon'
-import { getAssetUrl } from '../lib/config'
+import { getAssetUrl, getListingImageUrl } from '../lib/config'
 
 function fetchListing(id: string) {
   return api.get<Listing>(`/listings/${id}`)
@@ -103,7 +103,7 @@ export default function ListingDetails() {
   }
 
   const images = listing.images ?? []
-  const mainImage = images[selectedImageIndex]?.url
+  const mainImage = getListingImageUrl(images[selectedImageIndex])
   const seller = listing.seller
   const isOwner = user?.id === listing.sellerId
 
@@ -144,7 +144,7 @@ export default function ListingDetails() {
                     }`}
                   >
                     <img
-                      src={getAssetUrl(img.url)}
+                      src={getListingImageUrl(img)}
                       alt={`Thumbnail ${idx + 1}`}
                       className="w-full h-full object-cover"
                     />

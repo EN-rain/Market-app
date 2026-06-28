@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import type { Listing } from '../lib/types'
 import HeartIcon from './icons/HeartIcon'
 import LocationIcon from './icons/LocationIcon'
-import { getAssetUrl } from '../lib/config'
+import { getListingImageUrl } from '../lib/config'
 
 interface ListingCardProps {
   listing: Listing
@@ -19,7 +19,7 @@ const conditionColors: Record<string, string> = {
 }
 
 export default function ListingCard({ listing, onToggleFavorite }: ListingCardProps) {
-  const imageUrl = listing.images?.[0]?.url
+  const imageUrl = getListingImageUrl(listing.images?.[0])
   const conditionKey = listing.condition?.toLowerCase().replace(' ', '_') ?? ''
   const conditionClass = conditionColors[conditionKey] ?? 'bg-surface-high text-text-muted'
 
@@ -33,7 +33,7 @@ export default function ListingCard({ listing, onToggleFavorite }: ListingCardPr
         <div className="aspect-[4/3] relative bg-surface-high overflow-hidden">
           {imageUrl ? (
             <img
-              src={getAssetUrl(imageUrl)}
+              src={imageUrl}
               alt={`${listing.brand} ${listing.model}`}
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               loading="lazy"

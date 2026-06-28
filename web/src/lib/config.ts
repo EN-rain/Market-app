@@ -41,3 +41,9 @@ export function getAssetUrl(url?: string | null): string | undefined {
   }
   return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`
 }
+
+export function getListingImageUrl(
+  image?: { url?: string | null; imageUrl?: string | null } | null,
+): string | undefined {
+  return getAssetUrl(image?.imageUrl ?? image?.url)
+}

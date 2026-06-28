@@ -24,7 +24,8 @@ export interface OtpResponse {
 }
 
 export interface ListingImage {
-  url: string
+  url?: string
+  imageUrl?: string
   publicId?: string
 }
 

@@ -1,21 +1,34 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useCallback, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../components/AppShell'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import type { User, Listing } from '../lib/types'
 import LocationIcon from '../components/icons/LocationIcon'
-import { getAssetUrl } from '../lib/config'
-
-/* ------------------------------------------------------------------ */
-// Types & helpers
-/* ------------------------------------------------------------------ */
+import { getAssetUrl, getListingImageUrl } from '../lib/config'
 
 interface NotificationPayload {
   email: boolean
   push: boolean
 }
+
+interface ApiErrorShape {
+  response?: {
+    data?: {
+      message?: string
+    }
+  }
+}
+
+type ListingStatus =
+  | 'draft'
+  | 'pending'
+  | 'active'
+  | 'rejected'
+  | 'sold'
+  | 'removed'
+  | 'expired'
 
 function getInitials(name?: string, email?: string): string {
   if (name?.trim()) {
@@ -26,15 +39,9 @@ function getInitials(name?: string, email?: string): string {
       .toUpperCase()
       .slice(0, 2)
   }
-  if (email?.trim()) {
-    return email[0].toUpperCase()
-  }
+  if (email?.trim()) return email[0].toUpperCase()
   return 'U'
 }
-
-/* ------------------------------------------------------------------ */
-// API helpers
-/* ------------------------------------------------------------------ */
 
 function fetchProfile() {
   return api.get<User>('/users/me')
@@ -74,96 +81,164 @@ function deleteAccount() {
   return api.delete('/users/me')
 }
 
-/* ------------------------------------------------------------------ */
-// MyListingCard sub-component
-/* ------------------------------------------------------------------ */
+function formatMemberSince(value?: string) {
+  if (!value) return 'Recently joined'
+  return new Date(value).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
 
-function MyListingCard({
-  listing,
-  onMarkSold,
-  onRepublish,
-  onDelete,
-  isPending,
-}: {
-  listing: Listing
-  onMarkSold: (id: number) => void
-  onRepublish: (id: number) => void
-  onDelete: (id: number) => void
-  isPending: boolean
-}) {
-  const imageUrl = listing.images?.[0]?.url
+function formatMoney(value: number) {
+  return `$${value.toLocaleString()}`
+}
 
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  const maybeApiError = error as ApiErrorShape | undefined
+  if (maybeApiError?.response?.data?.message) return maybeApiError.response.data.message
+  if (error instanceof Error && error.message) return error.message
+  return fallback
+}
+
+function statusTone(status: string): string {
+  switch (status) {
+    case 'active':
+      return 'bg-primary-soft text-primary'
+    case 'pending':
+      return 'bg-tertiary/15 text-tertiary'
+    case 'sold':
+      return 'bg-secondary/10 text-secondary'
+    case 'rejected':
+    case 'removed':
+      return 'bg-error/10 text-error'
+    default:
+      return 'bg-surface-high text-text-secondary'
+  }
+}
+
+function OverviewIcon() {
   return (
-    <div className="bg-surface rounded-xl border border-card-border overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-      <a href={`/listing/${listing.id}`} className="block">
-        <div className="aspect-square relative bg-surface-high">
-          {imageUrl ? (
-            <img
-              src={getAssetUrl(imageUrl)}
-              alt={`${listing.brand} ${listing.model}`}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-text-muted">
-              <span className="text-sm">No image</span>
-            </div>
-          )}
-          {listing.status === 'sold' && (
-            <span className="absolute top-2 left-2 bg-foreground/80 text-white text-xs font-medium px-2 py-1 rounded-lg">
-              Sold
-            </span>
-          )}
-        </div>
-        <div className="p-3 space-y-1">
-          <p className="font-semibold text-text-primary line-clamp-1">
-            {listing.brand} {listing.model}
-          </p>
-          <p className="text-sm font-bold text-primary">${listing.price.toLocaleString()}</p>
-          <div className="flex items-center justify-between text-xs text-text-muted">
-            <span className="bg-surface-high px-2 py-0.5 rounded-md">{listing.condition}</span>
-            {listing.location && (
-              <span className="flex items-center gap-0.5">
-                <LocationIcon className="w-3 h-3" />
-                {listing.location}
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+      <path d="M3.5 3.5A1.5 1.5 0 0 1 5 2h3.5A1.5 1.5 0 0 1 10 3.5V7A1.5 1.5 0 0 1 8.5 8.5H5A1.5 1.5 0 0 1 3.5 7V3.5ZM11.5 5A1.5 1.5 0 0 1 13 3.5h2A1.5 1.5 0 0 1 16.5 5v10A1.5 1.5 0 0 1 15 16.5h-2A1.5 1.5 0 0 1 11.5 15V5ZM3.5 12A1.5 1.5 0 0 1 5 10.5h3.5A1.5 1.5 0 0 1 10 12v3A1.5 1.5 0 0 1 8.5 16.5H5A1.5 1.5 0 0 1 3.5 15v-3Z" />
+    </svg>
+  )
+}
+
+function ListingsIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+      <path d="M3 4.25A2.25 2.25 0 0 1 5.25 2h9.5A2.25 2.25 0 0 1 17 4.25v11.5A2.25 2.25 0 0 1 14.75 18h-9.5A2.25 2.25 0 0 1 3 15.75V4.25Zm3 1a.75.75 0 0 0 0 1.5h8a.75.75 0 0 0 0-1.5H6Zm0 4a.75.75 0 0 0 0 1.5h8a.75.75 0 0 0 0-1.5H6Zm0 4a.75.75 0 0 0 0 1.5h5a.75.75 0 0 0 0-1.5H6Z" />
+    </svg>
+  )
+}
+
+function SecurityIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+      <path fillRule="evenodd" d="M10 1.75a.75.75 0 0 1 .31.067l5.5 2.5A.75.75 0 0 1 16.25 5v3.652c0 3.06-1.686 5.876-4.39 7.334l-1.51.815a.75.75 0 0 1-.7 0l-1.51-.815A8.38 8.38 0 0 1 3.75 8.652V5a.75.75 0 0 1 .44-.683l5.5-2.5A.75.75 0 0 1 10 1.75Zm2.03 5.72a.75.75 0 1 0-1.06-1.06L9.25 8.129l-.72-.72a.75.75 0 1 0-1.06 1.061l1.25 1.25a.75.75 0 0 0 1.06 0l2.25-2.25Z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function SectionCard({
+  title,
+  subtitle,
+  icon,
+  action,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  icon?: React.ReactNode
+  action?: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <section className="rounded-2xl border border-card-border bg-surface p-5 shadow-[var(--shadow-card)] md:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {icon && (
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                {icon}
               </span>
             )}
+            <div>
+              <h2 className="text-base font-semibold text-text-primary md:text-lg">{title}</h2>
+              {subtitle && <p className="text-sm text-text-muted">{subtitle}</p>}
+            </div>
           </div>
         </div>
-      </a>
-      <div className="px-3 pb-3 mt-auto flex flex-wrap gap-2">
-        {listing.status === 'active' ? (
-          <button
-            onClick={() => onMarkSold(listing.id)}
-            disabled={isPending}
-            className="flex-1 rounded-lg bg-secondary/10 text-secondary text-xs font-medium px-3 py-2 hover:bg-secondary/20 transition-colors disabled:opacity-50"
-          >
-            Mark as sold
-          </button>
-        ) : (
-          <button
-            onClick={() => onRepublish(listing.id)}
-            disabled={isPending}
-            className="flex-1 rounded-lg bg-primary/10 text-primary text-xs font-medium px-3 py-2 hover:bg-primary/20 transition-colors disabled:opacity-50"
-          >
-            Republish
-          </button>
-        )}
-        <button
-          onClick={() => onDelete(listing.id)}
-          disabled={isPending}
-          className="flex-1 rounded-lg bg-error/10 text-error text-xs font-medium px-3 py-2 hover:bg-error/20 transition-colors disabled:opacity-50"
-        >
-          Delete
-        </button>
+        {action}
       </div>
+      <div className="mt-5">{children}</div>
+    </section>
+  )
+}
+
+function MetricCard({
+  label,
+  value,
+  tone = 'primary',
+}: {
+  label: string
+  value: string
+  tone?: 'primary' | 'secondary' | 'tertiary' | 'neutral'
+}) {
+  const toneClass =
+    tone === 'secondary'
+      ? 'bg-secondary/8 text-secondary'
+      : tone === 'tertiary'
+        ? 'bg-tertiary/14 text-tertiary'
+        : tone === 'neutral'
+          ? 'bg-surface-high text-text-primary'
+          : 'bg-primary-soft text-primary'
+
+  return (
+    <div className="rounded-2xl border border-card-border bg-surface p-4 shadow-[var(--shadow-card)]">
+      <div className={`inline-flex rounded-xl px-3 py-1 text-xs font-semibold ${toneClass}`}>{label}</div>
+      <div className="mt-4 text-2xl font-bold tracking-tight text-text-primary">{value}</div>
     </div>
   )
 }
 
-/* ------------------------------------------------------------------ */
-// Confirmation dialog
-/* ------------------------------------------------------------------ */
+function ToggleRow({
+  label,
+  hint,
+  checked,
+  disabled,
+  onToggle,
+}: {
+  label: string
+  hint: string
+  checked: boolean
+  disabled: boolean
+  onToggle: () => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-card-border bg-background px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-text-primary">{label}</p>
+        <p className="text-xs text-text-muted">{hint}</p>
+      </div>
+      <button
+        onClick={onToggle}
+        disabled={disabled}
+        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+          checked ? 'bg-primary' : 'bg-surface-high'
+        } ${disabled ? 'opacity-60' : ''}`}
+        aria-pressed={checked}
+      >
+        <span
+          className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+            checked ? 'translate-x-5' : ''
+          }`}
+        />
+      </button>
+    </div>
+  )
+}
 
 function ConfirmDialog({
   open,
@@ -185,19 +260,19 @@ function ConfirmDialog({
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-surface rounded-2xl border border-card-border shadow-xl max-w-sm w-full p-6 space-y-4">
+      <div className="w-full max-w-sm rounded-2xl border border-card-border bg-surface p-6 shadow-xl">
         <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
-        <p className="text-sm text-text-secondary">{description}</p>
-        <div className="flex gap-3 pt-1">
+        <p className="mt-2 text-sm leading-6 text-text-secondary">{description}</p>
+        <div className="mt-6 flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-card-border text-text-secondary px-4 py-2.5 text-sm font-medium hover:bg-surface-high transition-colors"
+            className="flex-1 rounded-xl border border-card-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-surface-high"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors ${
+            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-medium text-white ${
               danger ? 'bg-error hover:bg-error/90' : 'bg-primary hover:bg-primary-dark'
             }`}
           >
@@ -209,9 +284,79 @@ function ConfirmDialog({
   )
 }
 
-/* ------------------------------------------------------------------ */
-// Main Profile page
-/* ------------------------------------------------------------------ */
+function MyListingCard({
+  listing,
+  onMarkSold,
+  onRepublish,
+  onDelete,
+  isPending,
+}: {
+  listing: Listing
+  onMarkSold: (id: number) => void
+  onRepublish: (id: number) => void
+  onDelete: (id: number) => void
+  isPending: boolean
+}) {
+  const imageUrl = getListingImageUrl(listing.images?.[0])
+  const canMarkSold = listing.status === 'active'
+  const secondaryActionLabel = canMarkSold ? 'Mark sold' : 'Republish'
+  const secondaryAction = canMarkSold ? onMarkSold : onRepublish
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-card-border bg-surface shadow-[var(--shadow-card)] transition-transform duration-200 hover:-translate-y-0.5">
+      <Link to={`/listing/${listing.id}`} className="block">
+        <div className="relative aspect-[4/3] bg-surface-high">
+          {imageUrl ? (
+            <img src={imageUrl} alt={`${listing.brand} ${listing.model}`} className="h-full w-full object-cover" loading="lazy" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-sm text-text-muted">No image</div>
+          )}
+          <span className={`absolute left-3 top-3 rounded-lg px-2.5 py-1 text-xs font-semibold capitalize ${statusTone(listing.status)}`}>
+            {listing.status}
+          </span>
+        </div>
+      </Link>
+      <div className="space-y-4 p-4">
+        <div className="space-y-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-text-primary">
+                {listing.brand} {listing.model}
+              </p>
+              <p className="text-lg font-bold text-primary">{formatMoney(listing.price)}</p>
+            </div>
+            {listing.location && (
+              <div className="flex items-center gap-1 text-xs text-text-muted">
+                <LocationIcon className="h-3.5 w-3.5" />
+                <span className="max-w-20 truncate">{listing.location}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs text-text-secondary">
+            <span className="rounded-lg bg-surface-high px-2.5 py-1 capitalize">{listing.condition}</span>
+            {listing.storage && <span className="rounded-lg bg-surface-high px-2.5 py-1">{listing.storage}</span>}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => secondaryAction(listing.id)}
+            disabled={isPending}
+            className="rounded-xl bg-primary-soft px-3 py-2 text-sm font-medium text-primary hover:bg-primary-soft/80 disabled:opacity-50"
+          >
+            {secondaryActionLabel}
+          </button>
+          <button
+            onClick={() => onDelete(listing.id)}
+            disabled={isPending}
+            className="rounded-xl border border-card-border px-3 py-2 text-sm font-medium text-error hover:bg-error/5 disabled:opacity-50"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </article>
+  )
+}
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -219,34 +364,27 @@ export default function Profile() {
   const { logout, setUser } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ── Profile edit state ──
   const [isEditing, setIsEditing] = useState(false)
   const [editDisplayName, setEditDisplayName] = useState('')
   const [editLocation, setEditLocation] = useState('')
   const [editImageFile, setEditImageFile] = useState<File | null>(null)
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null)
 
-  // ── Password state ──
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
 
-  // ── Dialogs ──
   const [deleteListingId, setDeleteListingId] = useState<number | null>(null)
   const [showDeleteAccount, setShowDeleteAccount] = useState(false)
+  const [notifOverride, setNotifOverride] = useState<NotificationPayload | null>(null)
+  const [notifLoading, setNotifLoading] = useState(false)
 
-  // ── Queries ──
-  const {
-    data: profileRes,
-    isLoading: profileLoading,
-    error: profileError,
-  } = useQuery({
+  const { data: profileRes, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ['users', 'me'],
     queryFn: fetchProfile,
   })
-
   const profile = profileRes?.data ?? null
 
   const {
@@ -259,24 +397,7 @@ export default function Profile() {
     queryFn: fetchMyListings,
     enabled: !!profile?.id,
   })
-
   const myListings = listingsRes?.data ?? []
-
-  // ── Notification local optimistic state ──
-  const [notifEmail, setNotifEmail] = useState(true)
-  const [notifPush, setNotifPush] = useState(true)
-  const [notifLoading, setNotifLoading] = useState(false)
-
-  // Sync local notification state when profile loads
-  useEffect(() => {
-    if (profile?.notificationPreferences) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setNotifEmail(profile.notificationPreferences.messages ?? true)
-      setNotifPush(profile.notificationPreferences.listingUpdates ?? true)
-    }
-  }, [profile])
-
-  // ── Mutations ──
 
   const profileTextMutation = useMutation({
     mutationFn: updateProfileText,
@@ -293,6 +414,63 @@ export default function Profile() {
       queryClient.invalidateQueries({ queryKey: ['users', 'me'] })
       setEditImageFile(null)
       setEditImagePreview(null)
+    },
+  })
+
+  const notifMutation = useMutation({
+    mutationFn: updateNotifications,
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['users', 'me'] })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['users', 'me'] })
+      setNotifOverride(null)
+      setNotifLoading(false)
+    },
+    onError: () => {
+      setNotifOverride(null)
+      setNotifLoading(false)
+    },
+  })
+
+  const listingActionMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) => updateListingStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users', 'me', 'listings'] })
+    },
+  })
+
+  const deleteListingMutation = useMutation({
+    mutationFn: deleteListing,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users', 'me', 'listings'] })
+      setDeleteListingId(null)
+    },
+  })
+
+  const passwordMutation = useMutation({
+    mutationFn: changePassword,
+    onSuccess: () => {
+      setPasswordSuccess('Password changed successfully.')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setPasswordError('')
+    },
+    onError: (err: unknown) => {
+      setPasswordError(getApiErrorMessage(err, 'Failed to change password.'))
+    },
+  })
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: deleteAccount,
+    onSuccess: async () => {
+      setShowDeleteAccount(false)
+      await logout()
+      navigate('/login')
+    },
+    onError: (err: unknown) => {
+      alert(getApiErrorMessage(err, 'Failed to delete account.'))
     },
   })
 
@@ -335,61 +513,15 @@ export default function Profile() {
     setEditImagePreview(null)
   }
 
-  // Notifications
-  const notifMutation = useMutation({
-    mutationFn: updateNotifications,
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['users', 'me'] })
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', 'me'] })
-      setNotifLoading(false)
-    },
-    onError: () => {
-      setNotifLoading(false)
-    },
-  })
-
   const toggleNotif = (type: 'email' | 'push') => {
     setNotifLoading(true)
-    const nextEmail = type === 'email' ? !notifEmail : notifEmail
-    const nextPush = type === 'push' ? !notifPush : notifPush
-    setNotifEmail(nextEmail)
-    setNotifPush(nextPush)
+    const currentEmail = notifOverride?.email ?? profile?.notificationPreferences?.messages ?? true
+    const currentPush = notifOverride?.push ?? profile?.notificationPreferences?.listingUpdates ?? true
+    const nextEmail = type === 'email' ? !currentEmail : currentEmail
+    const nextPush = type === 'push' ? !currentPush : currentPush
+    setNotifOverride({ email: nextEmail, push: nextPush })
     notifMutation.mutate({ email: nextEmail, push: nextPush })
   }
-
-  // Listing actions
-  const listingActionMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) =>
-      updateListingStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', 'me', 'listings'] })
-    },
-  })
-
-  const deleteListingMutation = useMutation({
-    mutationFn: deleteListing,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', 'me', 'listings'] })
-      setDeleteListingId(null)
-    },
-  })
-
-  // Password
-  const passwordMutation = useMutation({
-    mutationFn: changePassword,
-    onSuccess: () => {
-      setPasswordSuccess('Password changed successfully.')
-      setCurrentPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
-      setPasswordError('')
-    },
-    onError: (err: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
-      setPasswordError(err?.response?.data?.message || 'Failed to change password.')
-    },
-  })
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault()
@@ -410,25 +542,11 @@ export default function Profile() {
     passwordMutation.mutate({ currentPassword, newPassword })
   }
 
-  // Delete account
-  const deleteAccountMutation = useMutation({
-    mutationFn: deleteAccount,
-    onSuccess: async () => {
-      setShowDeleteAccount(false)
-      await logout()
-      navigate('/login')
-    },
-    onError: (err: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
-      alert(err?.response?.data?.message || 'Failed to delete account.')
-    },
-  })
-
-  // ── Loading / error guards ──
   if (profileLoading) {
     return (
       <AppShell>
         <div className="flex justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
         </div>
       </AppShell>
     )
@@ -437,316 +555,368 @@ export default function Profile() {
   if (profileError) {
     return (
       <AppShell>
-        <div className="text-center py-20 text-error">
+        <div className="py-20 text-center text-error">
           <p>Failed to load profile</p>
-          <p className="text-sm text-text-muted mt-1">
-            {(profileError as any /* eslint-disable-line @typescript-eslint/no-explicit-any */)?.response?.data?.message || (profileError as Error).message}
+          <p className="mt-1 text-sm text-text-muted">
+            {getApiErrorMessage(profileError, 'Unable to load profile.')}
           </p>
         </div>
       </AppShell>
     )
   }
 
-  // ── Derived UI values ──
   const initials = getInitials(profile?.displayName, profile?.email)
   const profileImageUrl = editImagePreview || profile?.profileImage
+  const notifEmail = notifOverride?.email ?? profile?.notificationPreferences?.messages ?? true
+  const notifPush = notifOverride?.push ?? profile?.notificationPreferences?.listingUpdates ?? true
 
-  // ── Render ──
+  const statusCounts = myListings.reduce<Record<string, number>>((acc, listing) => {
+    const key = (listing.status || 'draft') as ListingStatus
+    acc[key] = (acc[key] ?? 0) + 1
+    return acc
+  }, {})
+  const activeListings = statusCounts.active ?? 0
+  const soldListings = statusCounts.sold ?? 0
+  const pendingListings = statusCounts.pending ?? 0
+  const liveValue = myListings
+    .filter((listing) => listing.status === 'active' || listing.status === 'pending')
+    .reduce((sum, listing) => sum + listing.price, 0)
+  const latestListing = myListings[0]
+  const dashboardListingError = getApiErrorMessage(listingsError, 'Unable to load listings.')
+
   return (
     <AppShell>
-      <div className="px-4 py-4 md:px-6 md:py-6 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ── Left column: Profile info ── */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Profile card */}
-            <div className="bg-surface rounded-2xl border border-card-border p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xl font-bold flex-shrink-0 overflow-hidden">
+      <div className="mx-auto max-w-7xl px-4 py-5 md:px-6 md:py-6">
+        <section className="overflow-hidden rounded-[28px] border border-card-border bg-surface shadow-[var(--shadow-card)]">
+          <div className="hero-gradient px-5 py-6 md:px-8 md:py-8">
+            <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+              <div className="flex min-w-0 items-start gap-4">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-3xl border border-card-border bg-surface text-2xl font-bold text-primary shadow-[var(--shadow-card)]">
                   {profileImageUrl ? (
-                    <img
-                      src={getAssetUrl(profileImageUrl)}
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={getAssetUrl(profileImageUrl)} alt="Profile" className="h-full w-full object-cover" />
                   ) : (
                     initials
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-lg font-bold text-text-primary truncate">
-                    {profile?.displayName || profile?.email || 'User'}
-                  </h2>
-                  <p className="text-sm text-text-secondary truncate">{profile?.email}</p>
-                  {profile?.location && (
-                    <p className="text-xs text-text-muted flex items-center gap-1 mt-0.5">
-                      <LocationIcon className="w-3 h-3" />
-                      {profile.location}
-                    </p>
-                  )}
+                  <p className="text-sm font-medium text-primary">Account dashboard</p>
+                  <h1 className="mt-1 text-2xl font-bold tracking-tight text-text-primary md:text-3xl">
+                    {profile?.displayName || 'PocketTrade seller workspace'}
+                  </h1>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-text-secondary">
+                    <span className="truncate">{profile?.email}</span>
+                    {profile?.location && (
+                      <span className="flex items-center gap-1">
+                        <LocationIcon className="h-4 w-4" />
+                        {profile.location}
+                      </span>
+                    )}
+                    <span>Member since {formatMemberSince((profile as User & { createdAt?: string })?.createdAt)}</span>
+                  </div>
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:min-w-[420px]">
+                <MetricCard label="Live listings" value={String(activeListings)} />
+                <MetricCard label="Pending review" value={String(pendingListings)} tone="tertiary" />
+                <MetricCard label="Sold" value={String(soldListings)} tone="secondary" />
+                <MetricCard label="Live value" value={formatMoney(liveValue)} tone="neutral" />
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-3 border-t border-card-border bg-surface px-5 py-4 md:grid-cols-3 md:px-8">
+            <Link to="/sell" className="rounded-2xl border border-card-border bg-background px-4 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-surface-high">
+              Create a new listing
+            </Link>
+            <Link to="/messages" className="rounded-2xl border border-card-border bg-background px-4 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-surface-high">
+              Open messages
+            </Link>
+            <button
+              onClick={startEditing}
+              className="rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+            >
+              Edit profile
+            </button>
+          </div>
+        </section>
 
-              {!isEditing ? (
-                <button
-                  onClick={startEditing}
-                  className="w-full rounded-xl bg-primary text-white font-medium py-2.5 text-sm hover:bg-primary-dark transition-colors"
-                >
-                  Edit Profile
-                </button>
-              ) : (
+        <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.9fr)]">
+          <div className="space-y-6">
+            <SectionCard
+              title="Listings workspace"
+              subtitle="Track inventory, review state, and next actions from one place."
+              icon={<ListingsIcon />}
+              action={
+                latestListing ? (
+                  <div className="rounded-xl bg-background px-3 py-2 text-right">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Latest update</p>
+                    <p className="text-sm font-medium text-text-primary">{latestListing.brand} {latestListing.model}</p>
+                  </div>
+                ) : null
+              }
+            >
+              {listingsLoading && (
+                <div className="flex justify-center py-12">
+                  <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                </div>
+              )}
+
+              {listingsError && (
+                <div className="rounded-2xl border border-error/15 bg-error/5 px-5 py-8 text-center">
+                  <p className="font-medium text-error">Failed to load listings</p>
+                  <p className="mt-1 text-sm text-text-muted">{dashboardListingError}</p>
+                  <button
+                    onClick={() => refetchListings()}
+                    className="mt-4 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {!listingsLoading && !listingsError && myListings.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-card-border bg-background px-5 py-12 text-center">
+                  <p className="text-base font-semibold text-text-primary">No listings yet</p>
+                  <p className="mt-1 text-sm text-text-muted">Start selling and the dashboard will track your inventory here.</p>
+                  <Link
+                    to="/sell"
+                    className="mt-4 inline-flex rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-dark"
+                  >
+                    Create first listing
+                  </Link>
+                </div>
+              )}
+
+              {!listingsLoading && !listingsError && myListings.length > 0 && (
                 <div className="space-y-4">
-                  {/* Image upload */}
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1.5">
-                      Profile photo
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold overflow-hidden flex-shrink-0">
-                        {editImagePreview ? (
-                          <img
-                            src={getAssetUrl(editImagePreview)}
-                            alt="Preview"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : profile?.profileImage ? (
-                          <img
-                            src={getAssetUrl(profile.profileImage)}
-                            alt="Profile"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          initials
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="rounded-lg border border-card-border text-text-secondary px-3 py-1.5 text-xs font-medium hover:bg-surface-high transition-colors"
-                        >
-                          {editImagePreview || profile?.profileImage ? 'Change' : 'Upload'}
-                        </button>
-                        {(editImagePreview || profile?.profileImage) && (
-                          <button
-                            type="button"
-                            onClick={removePreview}
-                            className="rounded-lg border border-card-border text-error px-3 py-1.5 text-xs font-medium hover:bg-error/5 transition-colors"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageChange}
-                      />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-card-border bg-background p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Active inventory</p>
+                      <p className="mt-2 text-xl font-bold text-text-primary">{activeListings}</p>
+                    </div>
+                    <div className="rounded-2xl border border-card-border bg-background p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Awaiting moderation</p>
+                      <p className="mt-2 text-xl font-bold text-text-primary">{pendingListings}</p>
+                    </div>
+                    <div className="rounded-2xl border border-card-border bg-background p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Listings total</p>
+                      <p className="mt-2 text-xl font-bold text-text-primary">{myListings.length}</p>
                     </div>
                   </div>
-
-                  {/* Display name */}
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">
-                      Display name
-                    </label>
-                    <input
-                      type="text"
-                      value={editDisplayName}
-                      onChange={(e) => setEditDisplayName(e.target.value)}
-                      placeholder="Your name"
-                      className="w-full rounded-xl border border-input-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    />
-                  </div>
-
-                  {/* Location */}
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">
-                      Location
-                    </label>
-                    <input
-                      type="text"
-                      value={editLocation}
-                      onChange={(e) => setEditLocation(e.target.value)}
-                      placeholder="e.g. London, UK"
-                      className="w-full rounded-xl border border-input-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    />
-                  </div>
-
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={cancelEditing}
-                      className="flex-1 rounded-xl border border-card-border text-text-secondary font-medium py-2.5 text-sm hover:bg-surface-high transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveProfile}
-                      disabled={!editDisplayName.trim() || profileTextMutation.isPending}
-                      className="flex-1 rounded-xl bg-primary text-white font-medium py-2.5 text-sm hover:bg-primary-dark transition-colors disabled:opacity-60"
-                    >
-                      {profileTextMutation.isPending ? 'Saving…' : 'Save'}
-                    </button>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                    {myListings.map((listing) => (
+                      <MyListingCard
+                        key={listing.id}
+                        listing={listing}
+                        onMarkSold={(itemId) => listingActionMutation.mutate({ id: itemId, status: 'sold' })}
+                        onRepublish={(itemId) => listingActionMutation.mutate({ id: itemId, status: 'active' })}
+                        onDelete={(itemId) => setDeleteListingId(itemId)}
+                        isPending={listingActionMutation.isPending || deleteListingMutation.isPending}
+                      />
+                    ))}
                   </div>
                 </div>
               )}
-            </div>
+            </SectionCard>
+          </div>
 
-            {/* Notification preferences */}
-            <div className="bg-surface rounded-2xl border border-card-border p-6 shadow-sm space-y-4">
-              <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
-                Notifications
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-text-secondary">Email notifications</span>
-                  <button
-                    onClick={() => toggleNotif('email')}
-                    disabled={notifLoading}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${
-                      notifEmail ? 'bg-primary' : 'bg-surface-high'
-                    } ${notifLoading ? 'opacity-60' : ''}`}
-                    aria-pressed={notifEmail}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        notifEmail ? 'translate-x-5' : ''
-                      }`}
-                    />
-                  </button>
+          <div className="space-y-6">
+            <SectionCard
+              title="Account overview"
+              subtitle="Identity, listing pace, and fast profile maintenance."
+              icon={<OverviewIcon />}
+            >
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-card-border bg-background p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-primary-soft text-lg font-bold text-primary">
+                      {profileImageUrl ? (
+                        <img src={getAssetUrl(profileImageUrl)} alt="Profile" className="h-full w-full object-cover" />
+                      ) : (
+                        initials
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold text-text-primary">{profile?.displayName || 'Unnamed account'}</p>
+                      <p className="truncate text-sm text-text-secondary">{profile?.email}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-text-secondary">Push notifications</span>
-                  <button
-                    onClick={() => toggleNotif('push')}
-                    disabled={notifLoading}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${
-                      notifPush ? 'bg-primary' : 'bg-surface-high'
-                    } ${notifLoading ? 'opacity-60' : ''}`}
-                    aria-pressed={notifPush}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        notifPush ? 'translate-x-5' : ''
-                      }`}
-                    />
-                  </button>
-                </div>
+
+                {!isEditing ? (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl border border-card-border bg-background p-4 text-sm text-text-secondary">
+                      <p className="font-medium text-text-primary">Location</p>
+                      <p className="mt-1">{profile?.location || 'No location added yet'}</p>
+                    </div>
+                    <button
+                      onClick={startEditing}
+                      className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary-dark"
+                    >
+                      Edit profile details
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-text-secondary">Profile photo</label>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-primary-soft text-sm font-bold text-primary">
+                          {editImagePreview ? (
+                            <img src={getAssetUrl(editImagePreview)} alt="Preview" className="h-full w-full object-cover" />
+                          ) : profile?.profileImage ? (
+                            <img src={getAssetUrl(profile.profileImage)} alt="Profile" className="h-full w-full object-cover" />
+                          ) : (
+                            initials
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="rounded-xl border border-card-border px-3 py-2 text-xs font-medium text-text-secondary hover:bg-surface-high"
+                          >
+                            {editImagePreview || profile?.profileImage ? 'Change image' : 'Upload image'}
+                          </button>
+                          {(editImagePreview || profile?.profileImage) && (
+                            <button
+                              type="button"
+                              onClick={removePreview}
+                              className="rounded-xl border border-card-border px-3 py-2 text-xs font-medium text-error hover:bg-error/5"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleImageChange}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-text-secondary">Display name</label>
+                      <input
+                        type="text"
+                        value={editDisplayName}
+                        onChange={(e) => setEditDisplayName(e.target.value)}
+                        placeholder="Your name"
+                        className="w-full rounded-xl border border-input-border bg-background px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-text-secondary">Location</label>
+                      <input
+                        type="text"
+                        value={editLocation}
+                        onChange={(e) => setEditLocation(e.target.value)}
+                        placeholder="e.g. London, UK"
+                        className="w-full rounded-xl border border-input-border bg-background px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={cancelEditing}
+                        className="rounded-xl border border-card-border px-4 py-3 text-sm font-medium text-text-secondary hover:bg-surface-high"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveProfile}
+                        disabled={!editDisplayName.trim() || profileTextMutation.isPending}
+                        className="rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-60"
+                      >
+                        {profileTextMutation.isPending ? 'Saving...' : 'Save changes'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            </SectionCard>
 
-            {/* Change password */}
-            <div className="bg-surface rounded-2xl border border-card-border p-6 shadow-sm space-y-4">
-              <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
-                Change Password
-              </h3>
+            <SectionCard
+              title="Notifications"
+              subtitle="Control which marketplace activity reaches you."
+              icon={<OverviewIcon />}
+            >
+              <div className="space-y-3">
+                <ToggleRow
+                  label="Email notifications"
+                  hint="Listing updates, approvals, and account alerts."
+                  checked={notifEmail}
+                  disabled={notifLoading}
+                  onToggle={() => toggleNotif('email')}
+                />
+                <ToggleRow
+                  label="Push notifications"
+                  hint="Messages and live activity while you are away."
+                  checked={notifPush}
+                  disabled={notifLoading}
+                  onToggle={() => toggleNotif('push')}
+                />
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="Security"
+              subtitle="Rotate credentials and keep account access under control."
+              icon={<SecurityIcon />}
+            >
               <form onSubmit={handleChangePassword} className="space-y-3">
                 <input
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Current password"
-                  className="w-full rounded-xl border border-input-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  className="w-full rounded-xl border border-input-border bg-background px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
                 <input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="New password"
-                  className="w-full rounded-xl border border-input-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  className="w-full rounded-xl border border-input-border bg-background px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
-                  className="w-full rounded-xl border border-input-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  className="w-full rounded-xl border border-input-border bg-background px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
-                {passwordError && (
-                  <p className="text-error text-xs">{passwordError}</p>
-                )}
-                {passwordSuccess && (
-                  <p className="text-primary text-xs">{passwordSuccess}</p>
-                )}
+                {passwordError && <p className="text-xs text-error">{passwordError}</p>}
+                {passwordSuccess && <p className="text-xs text-primary">{passwordSuccess}</p>}
                 <button
                   type="submit"
                   disabled={passwordMutation.isPending}
-                  className="w-full rounded-xl bg-secondary text-white font-medium py-2.5 text-sm hover:bg-secondary/90 transition-colors disabled:opacity-60"
+                  className="w-full rounded-xl bg-secondary px-4 py-3 text-sm font-medium text-white hover:bg-secondary/90 disabled:opacity-60"
                 >
-                  {passwordMutation.isPending ? 'Updating…' : 'Update password'}
+                  {passwordMutation.isPending ? 'Updating...' : 'Update password'}
                 </button>
               </form>
-            </div>
+            </SectionCard>
 
-            {/* Delete account */}
-            <div className="bg-surface rounded-2xl border border-card-border p-6 shadow-sm">
-              <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide mb-3">
-                Danger Zone
-              </h3>
+            <SectionCard
+              title="Danger zone"
+              subtitle="Permanent account actions stay isolated here."
+              icon={<SecurityIcon />}
+            >
               <button
                 onClick={() => setShowDeleteAccount(true)}
-                className="w-full rounded-xl bg-error text-white font-medium py-2.5 text-sm hover:bg-error/90 transition-colors"
+                className="w-full rounded-xl bg-error px-4 py-3 text-sm font-medium text-white hover:bg-error/90"
               >
-                Delete Account
+                Delete account
               </button>
-            </div>
-          </div>
-
-          {/* ── Right column: My listings ── */}
-          <div className="lg:col-span-2">
-            <h2 className="text-lg font-bold text-text-primary mb-4">My Listings</h2>
-
-            {listingsLoading && (
-              <div className="flex justify-center py-12">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-
-            {listingsError && (
-              <div className="text-center py-12 text-error">
-                <p>Failed to load listings</p>
-                <p className="text-sm text-text-muted mt-1">
-                  {(listingsError as any /* eslint-disable-line @typescript-eslint/no-explicit-any */)?.response?.data?.message ||
-                    (listingsError as Error).message}
-                </p>
-                <button
-                  onClick={() => refetchListings()}
-                  className="mt-3 rounded-lg bg-primary text-white px-4 py-2 text-sm hover:bg-primary-dark transition-colors"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {!listingsLoading && !listingsError && myListings.length === 0 && (
-              <div className="text-center py-12 text-text-secondary bg-surface rounded-2xl border border-card-border">
-                <p className="font-medium">No listings yet</p>
-                <p className="text-sm text-text-muted mt-1">
-                  Start selling by creating a new listing
-                </p>
-              </div>
-            )}
-
-            {!listingsLoading && !listingsError && myListings.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {myListings.map((listing) => (
-                  <MyListingCard
-                    key={listing.id}
-                    listing={listing}
-                    onMarkSold={(id) => listingActionMutation.mutate({ id, status: 'sold' })}
-                    onRepublish={(id) => listingActionMutation.mutate({ id, status: 'active' })}
-                    onDelete={(id) => setDeleteListingId(id)}
-                    isPending={listingActionMutation.isPending || deleteListingMutation.isPending}
-                  />
-                ))}
-              </div>
-            )}
+            </SectionCard>
           </div>
         </div>
       </div>
 
-      {/* Delete listing confirmation */}
       <ConfirmDialog
         open={!!deleteListingId}
         title="Delete listing?"
@@ -757,7 +927,6 @@ export default function Profile() {
         onCancel={() => setDeleteListingId(null)}
       />
 
-      {/* Delete account confirmation */}
       <ConfirmDialog
         open={showDeleteAccount}
         title="Delete your account?"
