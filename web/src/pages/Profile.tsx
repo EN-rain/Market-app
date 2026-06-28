@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../components/AppShell'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { useTheme } from '../context/ThemeContext'
 import type { User, Listing, PaginatedListings } from '../lib/types'
 import LocationIcon from '../components/icons/LocationIcon'
 import { getAssetUrl, getListingImageUrl } from '../lib/config'
@@ -497,7 +496,6 @@ export default function Profile() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { logout, setUser } = useAuth()
-  const { theme, toggleTheme } = useTheme()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [isEditing, setIsEditing] = useState(false)
@@ -516,6 +514,8 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
+  const [securityOpen, setSecurityOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const [deleteListingId, setDeleteListingId] = useState<number | null>(null)
   const [showDeleteAccount, setShowDeleteAccount] = useState(false)
@@ -896,16 +896,13 @@ export default function Profile() {
                     <div className="min-w-0">
                       <p className="truncate text-base font-semibold text-text-primary">{profile?.displayName || 'Unnamed account'}</p>
                       <p className="truncate text-sm text-text-secondary">{profile?.email}</p>
+                      <p className="mt-1 truncate text-sm text-text-secondary">{profile?.location || 'No location added yet'}</p>
                     </div>
                   </div>
                 </div>
 
                 {!isEditing ? (
                   <div className="space-y-3">
-                    <div className="border-b border-card-border pb-4 text-sm text-text-secondary">
-                      <p className="font-medium text-text-primary">Location</p>
-                      <p className="mt-1">{profile?.location || 'No location added yet'}</p>
-                    </div>
                     <button
                       onClick={startEditing}
                       className="w-full rounded-xl border border-card-border bg-background px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-high"
@@ -967,7 +964,7 @@ export default function Profile() {
               </div>
             </SectionCard>
 
-            <SectionCard title="Notif" icon={<OverviewIcon />}>
+            <SectionCard title="Notifications" icon={<OverviewIcon />}>
               <div className="space-y-3">
                 <ToggleRow
                   label="Email notifications"
@@ -983,58 +980,97 @@ export default function Profile() {
                   disabled={notifLoading}
                   onToggle={() => toggleNotif('push')}
                 />
-                <ToggleRow
-                  label="Dark mode"
-                  hint=""
-                  checked={theme === 'dark'}
-                  disabled={false}
-                  onToggle={toggleTheme}
-                />
               </div>
             </SectionCard>
 
-            <SectionCard title="Security" icon={<SecurityIcon />}>
-              <form onSubmit={handleChangePassword} className="space-y-3">
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Current password"
-                  className="w-full rounded-xl border border-input-border bg-background px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="New password"
-                  className="w-full rounded-xl border border-input-border bg-background px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  className="w-full rounded-xl border border-input-border bg-background px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-                {passwordError && <p className="text-xs text-text-secondary">{passwordError}</p>}
-                {passwordSuccess && <p className="text-xs text-primary">{passwordSuccess}</p>}
+            <SectionCard
+              title="Security"
+              icon={<SecurityIcon />}
+              action={
                 <button
-                  type="submit"
-                  disabled={passwordMutation.isPending}
-                  className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-60"
+                  type="button"
+                  onClick={() => setSecurityOpen((open) => !open)}
+                  aria-expanded={securityOpen}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-card-border bg-background text-text-secondary hover:bg-surface-high hover:text-text-primary"
                 >
-                  {passwordMutation.isPending ? 'Updating...' : 'Update password'}
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className={`h-4 w-4 transition-transform duration-200 ${securityOpen ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
+                  >
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.51a.75.75 0 0 1-1.08 0l-4.25-4.51a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
+                  </svg>
                 </button>
-              </form>
+              }
+            >
+              {securityOpen ? (
+                <form onSubmit={handleChangePassword} className="space-y-3 animate-panel-in">
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Current password"
+                    className="w-full rounded-xl border border-input-border bg-background px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="New password"
+                    className="w-full rounded-xl border border-input-border bg-background px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="w-full rounded-xl border border-input-border bg-background px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  {passwordError && <p className="text-xs text-text-secondary">{passwordError}</p>}
+                  {passwordSuccess && <p className="text-xs text-primary">{passwordSuccess}</p>}
+                  <button
+                    type="submit"
+                    disabled={passwordMutation.isPending}
+                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-60"
+                  >
+                    {passwordMutation.isPending ? 'Updating...' : 'Update password'}
+                  </button>
+                </form>
+              ) : null}
             </SectionCard>
 
-            <SectionCard title="Delete acc" icon={<SecurityIcon />}>
-              <button
-                onClick={() => setShowDeleteAccount(true)}
-                className="w-full rounded-xl border border-card-border bg-background px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-high"
-              >
-                Delete account
-              </button>
+            <SectionCard
+              title="Delete acc"
+              icon={<SecurityIcon />}
+              action={
+                <button
+                  type="button"
+                  onClick={() => setDeleteOpen((open) => !open)}
+                  aria-expanded={deleteOpen}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-card-border bg-background text-text-secondary hover:bg-surface-high hover:text-text-primary"
+                >
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className={`h-4 w-4 transition-transform duration-200 ${deleteOpen ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
+                  >
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.51a.75.75 0 0 1-1.08 0l-4.25-4.51a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              }
+            >
+              {deleteOpen ? (
+                <div className="animate-panel-in">
+                  <button
+                    onClick={() => setShowDeleteAccount(true)}
+                    className="w-full rounded-xl border border-card-border bg-background px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-high"
+                  >
+                    Delete account
+                  </button>
+                </div>
+              ) : null}
             </SectionCard>
           </div>
         </div>
