@@ -216,7 +216,7 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <section className="border-t border-card-border pt-5 md:pt-6">
+    <section className="border-t border-card-border pt-5 md:pt-6 animate-panel-in">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -253,7 +253,7 @@ function MetricCard({
       : 'bg-primary-soft text-primary'
 
   return (
-    <div className="rounded-2xl border border-card-border bg-background p-4">
+    <div className="rounded-2xl border border-card-border bg-background p-4 motion-card">
       <div className={`inline-flex rounded-xl px-3 py-1 text-xs font-semibold ${toneClass}`}>{label}</div>
       <div className="mt-4 text-2xl font-bold tracking-tight text-text-primary">{value}</div>
     </div>
@@ -274,7 +274,7 @@ function ToggleRow({
   onToggle: () => void
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-card-border bg-background px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-card-border bg-background px-4 py-3 motion-card">
       <div className="min-w-0">
         <p className="text-sm font-medium text-text-primary">{label}</p>
         {hint ? <p className="text-xs text-text-muted">{hint}</p> : null}
@@ -314,8 +314,8 @@ function ConfirmDialog({
 }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-card-border bg-surface p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-overlay-in">
+      <div className="w-full max-w-sm rounded-2xl border border-card-border bg-surface p-6 shadow-xl animate-scale-in">
         <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
         <p className="mt-2 text-sm leading-6 text-text-secondary">{description}</p>
         <div className="mt-6 flex gap-3">
@@ -365,8 +365,8 @@ function CropDialog({
   if (!open || !imageSrc) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-xl rounded-3xl border border-card-border bg-surface p-5 shadow-xl md:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-overlay-in">
+      <div className="w-full max-w-xl rounded-3xl border border-card-border bg-surface p-5 shadow-xl animate-scale-in md:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-semibold text-text-primary">Edit profile photo</h3>
@@ -438,7 +438,7 @@ function MyListingCard({
   const secondaryAction = canMarkSold ? onMarkSold : onRepublish
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-card-border bg-background transition-colors duration-200 hover:bg-surface">
+    <article className="overflow-hidden rounded-2xl border border-card-border bg-background transition-colors duration-200 hover:bg-surface motion-card animate-panel-in">
       <Link to={`/listing/${listing.id}`} className="block">
         <div className="relative aspect-[4/3] bg-surface-high">
           {imageUrl ? (

@@ -26,11 +26,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const darkModeLabel = theme === 'dark' ? 'Light mode' : 'Dark mode'
 
   return (
-    <div className="min-h-dvh flex flex-col bg-background text-text-primary">
+    <div className="min-h-dvh flex flex-col bg-background text-text-primary animate-page-in">
 
       {/* ── Desktop Header ──────────────────────────────── */}
       <header
-        className="hidden md:block sticky top-0 z-40 w-full"
+        className="hidden md:block sticky top-0 z-40 w-full animate-slide-down"
         style={{ boxShadow: 'var(--shadow-nav)' }}
       >
         <div className="bg-background/95 backdrop-blur-md border-b border-border">
@@ -134,10 +134,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* ── Main Content ────────────────────────────────── */}
-      <main className="flex-1 pb-20 md:pb-0 animate-fade-in">{children}</main>
+      <main className="flex-1 pb-20 md:pb-0 animate-page-in">{children}</main>
 
       {/* ── Mobile Bottom Nav ─────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border z-40 safe-area-pb">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border z-40 safe-area-pb animate-slide-up">
         <div className="flex items-center justify-around py-2">
           {[...navLinks, { path: '/sell', label: 'Sell' }, { path: '#theme', label: theme === 'dark' ? 'Light' : 'Dark' }].map((t) => {
             if (t.path === '#theme') {
